@@ -14,13 +14,18 @@ enum LightEffect { Static, Breath, Cycle, Blink, Wave, Music, HwWave, HwStarry, 
 sealed class DeviceLight
 {
     public string Color { get; set; } = "#FF0000";
+    // Nefes iki renk arasinda gecer; diger efektler yalnizca Color'u kullanir.
+    public string Color2 { get; set; } = "#0000FF";
     public int Brightness { get; set; } = 80;
     public LightEffect Effect { get; set; } = LightEffect.Static;
     public int Speed { get; set; } = 5; // 1 (yavas) - 10 (hizli)
 
     [JsonIgnore]
-    public (byte r, byte g, byte b) Rgb => (Convert.ToByte(Color[1..3], 16), Convert.ToByte(Color[3..5], 16), Convert.ToByte(Color[5..7], 16));
-    public DeviceLight Clone() => new() { Color = Color, Brightness = Brightness, Effect = Effect, Speed = Speed };
+    public (byte r, byte g, byte b) Rgb => Parse(Color);
+    [JsonIgnore]
+    public (byte r, byte g, byte b) Rgb2 => Parse(Color2);
+    static (byte, byte, byte) Parse(string c) => (Convert.ToByte(c[1..3], 16), Convert.ToByte(c[3..5], 16), Convert.ToByte(c[5..7], 16));
+    public DeviceLight Clone() => new() { Color = Color, Color2 = Color2, Brightness = Brightness, Effect = Effect, Speed = Speed };
 
     public bool Valid()
     {
@@ -30,6 +35,8 @@ sealed class DeviceLight
         if (!LightState.IsHex(Color)) return false;
         // Eski surumlerden kalan koyu renkler ayni tonda tam parlakliga cekilir.
         Color = LightState.Bright(Color) ?? "#FFFFFF";
+        // Ikinci renk sonradan eklendi; eski kayitlarda yoksa ya da bozuksa varsayilana doner.
+        Color2 = LightState.Bright(Color2 ?? "") ?? "#0000FF";
         return true;
     }
 }
@@ -123,7 +130,7 @@ static class Effects
     public static readonly (LightEffect id, string name, string desc)[] All =
     [
         (LightEffect.Static, "Sabit", "Seçtiğin renk sürekli yanar."),
-        (LightEffect.Breath, "Nefes", "Seçtiğin renk yavaşça kararıp aydınlanır."),
+        (LightEffect.Breath, "Nefes", "Seçtiğin iki renk arasında yavaşça gidip gelir."),
         (LightEffect.Cycle, "Renk döngüsü", "Tüm renkler sırayla döner; seçtiğin renk kullanılmaz."),
         (LightEffect.Blink, "Yanıp sönme", "Seçtiğin renk yanar ve söner."),
         (LightEffect.Wave, "Dalga", "Işık ön fanlardan CPU soğutucuya, oradan ekran kartına akar."),
@@ -188,6 +195,7 @@ static class Effects
         var d = s.For(device);
         var (r, g, b) = d.Rgb;
         var effect = still ? LightEffect.Static : d.Effect;
+        bool hwPreview = IsHardware(effect) && preview;
         if (IsHardware(effect)) effect = preview ? PreviewOf(effect) : LightEffect.Static;
         double level = s.On ? d.Brightness / 100.0 : 0;
         if (effect == LightEffect.Static || level == 0) return new(r, g, b, level);
@@ -195,7 +203,11 @@ static class Effects
         switch (effect)
         {
             case LightEffect.Breath:
-                return new(r, g, b, level * Pulse(phase));
+                // Donanim efektlerinin onizlemesi tek renkli nabiz kalir (denetleyici tek renk biliyor).
+                if (hwPreview) return new(r, g, b, level * Pulse(phase));
+                // Renk 1 -> Renk 2 -> Renk 1; isik sonmez, yalnizca renk kayar.
+                var (mr, mg, mb) = Mix(d.Rgb, d.Rgb2, 0.5 - 0.5 * Math.Cos(2 * Math.PI * phase));
+                return new(mr, mg, mb, level);
             case LightEffect.Cycle:
                 var (hr, hg, hb) = Hue(phase);
                 return new(hr, hg, hb, level);
@@ -209,6 +221,18 @@ static class Effects
             default:
                 return new(r, g, b, level);
         }
+    }
+
+    // Iki rengi isik olarak (dogrusal) karistirir ve en guclu kanali tama ceker. sRGB baytlarini dogrudan
+    // karistirmak ara tonu karartir (kirmizi+yesil ortasi koyu zeytin olur); boylece sari ve hep tam parlak.
+    static (byte, byte, byte) Mix((byte r, byte g, byte b) a, (byte r, byte g, byte b) c, double k)
+    {
+        static double Lin(byte v) { double x = v / 255.0; return x <= 0.04045 ? x / 12.92 : Math.Pow((x + 0.055) / 1.055, 2.4); }
+        static byte Enc(double l) { double x = l <= 0.0031308 ? l * 12.92 : 1.055 * Math.Pow(l, 1 / 2.4) - 0.055; return (byte)Math.Round(Math.Clamp(x, 0, 1) * 255); }
+        double r = Lin(a.r) + (Lin(c.r) - Lin(a.r)) * k, g = Lin(a.g) + (Lin(c.g) - Lin(a.g)) * k, b = Lin(a.b) + (Lin(c.b) - Lin(a.b)) * k;
+        double max = Math.Max(r, Math.Max(g, b));
+        if (max > 0) { r /= max; g /= max; b /= max; }
+        return (Enc(r), Enc(g), Enc(b));
     }
 
     // Tam doygun renk tekerlegi (HSV, S = V = 1).

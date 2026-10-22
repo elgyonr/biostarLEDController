@@ -148,10 +148,11 @@ public partial class MainWindow : Window
     }
 
     // Anlik goruntu icin: oyun sekmesini ya da Sync kapali bir parca secimini gosterir.
-    internal void ShowForSnapshot(bool game, string? part)
+    internal void ShowForSnapshot(bool game, string? part, LightEffect? effect = null)
     {
         _gameTab = game;
         if (part is not null) { _s.Sync = false; _selected = part; }
+        if (effect is { } fx) T.Effect = fx;
         Render();
     }
 
@@ -175,12 +176,20 @@ public partial class MainWindow : Window
         LightChanged?.Invoke(_s);
     }
 
+    // Nefes'te ikinci renk duzenleniyor mu; kutular, palet ve hex o rengi gosterir.
+    bool _second;
+    bool TwoColors => T.Effect == LightEffect.Breath;
+    string ActiveColor => _second && TwoColors ? T.Color2 : T.Color;
+
     public void SetColor(string hex)
     {
         if (LightState.Bright(hex) is not { } bright) return;
-        T.Color = bright;
+        if (_second && TwoColors) T.Color2 = bright; else T.Color = bright;
         Changed();
     }
+
+    void OnSlot1(object sender, RoutedEventArgs e) { _second = false; Render(); }
+    void OnSlot2(object sender, RoutedEventArgs e) { _second = true; Render(); }
 
     void SetEffect(LightEffect e)
     {
@@ -222,11 +231,19 @@ public partial class MainWindow : Window
         TargetTitle.Text = _s.Sync ? "Tüm parçalar" : part.name;
         TargetSub.Text = _s.Sync ? "Ön fanlar, CPU soğutucu ve ekran kartı aynı ayarda" : part.detail;
         TargetSub.ToolTip = _s.Sync ? null : part.tech;
-        foreach (var (b, hex) in _swatchHex) b.Tag = hex == t.Color ? "selected" : null;
-        _customSwatch.Tag = _swatchHex.ContainsValue(t.Color) ? null : "selected";
-        if (!HexBox.IsKeyboardFocusWithin) HexBox.Text = t.Color;
-        PickedDot.Background = Brush(t.Color);
-        Picker.SetColor(t.Color);
+        // Iki renk yalnizca Nefes'te; baska efekte gecince duzenleme birinci renge doner.
+        if (!TwoColors) _second = false;
+        ColorSlots.Visibility = TwoColors ? Visibility.Visible : Visibility.Collapsed;
+        Slot1.Background = Brush(t.Color);
+        Slot2.Background = Brush(t.Color2);
+        Slot1.Tag = _second ? null : "selected";
+        Slot2.Tag = _second ? "selected" : null;
+        string active = ActiveColor;
+        foreach (var (b, hex) in _swatchHex) b.Tag = hex == active ? "selected" : null;
+        _customSwatch.Tag = _swatchHex.ContainsValue(active) ? null : "selected";
+        if (!HexBox.IsKeyboardFocusWithin) HexBox.Text = active;
+        PickedDot.Background = Brush(active);
+        Picker.SetColor(active);
         // Hedef parca degisince kaydiricilar onun degerine gecer; bu bir kullanici degisikligi degil.
         _loading = true;
         Bright.Value = t.Brightness;
@@ -426,7 +443,7 @@ public partial class MainWindow : Window
         // Gecersiz kod (ya da siyah) uyari gostermeden gecerli renge geri doner.
         if (LightState.Bright(v) is not null) SetColor(v);
         // Koyu kod ayni tonun tam parlak haline cekilmis olabilir; kutu odaktayken Render yazmaz.
-        HexBox.Text = T.Color;
+        HexBox.Text = ActiveColor;
     }
 
     // Kapatma dugmesi uygulamayi kapatmaz, tepsiye gizler. Cikis tepsi menusunden.

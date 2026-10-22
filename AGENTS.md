@@ -136,7 +136,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 # Donanıma dokunmadan arayüz görüntüsü al (yönetici gerektirmez)
 dotnet build .\ledsync\LedSync.csproj -c Release -o .\bin\snap
 $env:__COMPAT_LAYER = 'RunAsInvoker'
-.\bin\snap\RLEDC.exe --no-hardware --snapshot .\shot.png [--picker] [--game] [--part fans|cpu|gpu] [--theme Light|Dark]
+.\bin\snap\RLEDC.exe --no-hardware --snapshot .\shot.png [--picker] [--game] [--part fans|cpu|gpu] [--theme Light|Dark] [--effect Breath]
 ```
 
 - **Snapshot modu:** 500 ms bekler (anahtar animasyonları bitsin diye) ve ayarları kaydetmez (`SkipSave`).

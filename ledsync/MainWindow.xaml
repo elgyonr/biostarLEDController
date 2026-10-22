@@ -125,7 +125,16 @@
           </StackPanel>
         </DockPanel>
 
-        <TextBlock Style="{StaticResource Label}" Text="Renk"/>
+        <!-- Nefes iki renk arasinda gecer: Renk 1 / Renk 2 secilir, kutular ve palet secili olani duzenler. -->
+        <DockPanel Margin="0,0,0,8">
+          <StackPanel x:Name="ColorSlots" DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button x:Name="Slot1" Style="{StaticResource CustomSwatch}" Content="Renk 1" Height="30" Margin="0,0,8,0" Click="OnSlot1"
+                    AutomationProperties.Name="Birinci renk"/>
+            <Button x:Name="Slot2" Style="{StaticResource CustomSwatch}" Content="Renk 2" Height="30" Margin="0" Click="OnSlot2"
+                    AutomationProperties.Name="İkinci renk"/>
+          </StackPanel>
+          <TextBlock FontWeight="SemiBold" Text="Renk" VerticalAlignment="Center"/>
+        </DockPanel>
         <WrapPanel x:Name="Swatches"/>
         <!-- Ozel renk: son kutudan acilir; palet, secilen renk ve hex kodu. -->
         <Popup x:Name="PickerPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6">
