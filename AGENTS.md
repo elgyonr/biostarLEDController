@@ -130,8 +130,8 @@ led projesi/
 Gereken: Windows x64, .NET 10 SDK, kurulu PawnIO sürücüsü. Uygulama `requireAdministrator` manifest'iyle çalışır.
 
 ```powershell
-# Kurulu sürümü güncelle (önce kullanıcı uygulamayı tepsiden "Çıkış" ile kapatmalı)
-dotnet build .\ledsync\LedSync.csproj -c Release -o .\bin\ledsync
+# Kurulu sürümü güncelle: çalışan RLEDC'yi kapatır, derler, yönetici olarak başlatır
+powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 
 # Donanıma dokunmadan arayüz görüntüsü al (yönetici gerektirmez)
 dotnet build .\ledsync\LedSync.csproj -c Release -o .\bin\snap
@@ -142,7 +142,10 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 - **Snapshot modu:** 500 ms bekler (anahtar animasyonları bitsin diye) ve ayarları kaydetmez (`SkipSave`).
 - **`--tray`:** pencereyi açmadan yalnızca tepsiden başlar.
 - **Doğrulama:** Gerçek LED davranışını yalnızca kullanıcı gözle doğrulayabilir. "Çalışıyor" demeden önce kullanıcıdan teyit al.
-- **Kurulum sırası:** Kullanıcı önce uygulamayı tepsiden kapatır, ajan sonra derleyip başlatır. Çalışan exe'nin üzerine derleme yapılamaz.
+- **Kurulum (kullanıcı kararı, 22 Ekim 2026):** Her derlemeden sonra `deploy.ps1` çalıştırılır; kullanıcıya sorulmaz, onay beklenmez.
+  - Betik çalışan RLEDC'yi zorla kapatır, gerekirse yönetici yetkisiyle `taskkill` kullanır.
+  - Ardından derler ve yeni sürümü başlatır.
+  - Derleme başarısız olursa betik durur; eski sürüm kapalı kalır.
 
 ## 6. Kod üslubu
 
