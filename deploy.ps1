@@ -5,6 +5,9 @@ $root = $PSScriptRoot
 $exe = Join-Path $root 'bin\ledsync\RLEDC.exe'
 
 if (Get-Process RLEDC -ErrorAction SilentlyContinue) {
+    # Zorla kapatma uygulamaya iz birakmaz; nedeni uygulamanin kendi kaydina yazilir.
+    $log = Join-Path $env:APPDATA 'LedSync\rlc-hata.log'
+    [IO.File]::AppendAllText($log, ('{0:yyyy-MM-dd HH:mm:ss.fff} kapaniyor: deploy.ps1 zorla kapatti (yeni surum kuruluyor){1}' -f (Get-Date), [Environment]::NewLine))
     # Uygulama yonetici olarak calisir; normal yetkiyle durdurulamazsa taskkill yonetici olarak calistirilir.
     try { Stop-Process -Name RLEDC -Force -ErrorAction Stop }
     catch { Start-Process taskkill -ArgumentList '/F /IM RLEDC.exe' -Verb RunAs -WindowStyle Hidden -Wait }

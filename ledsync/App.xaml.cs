@@ -18,7 +18,8 @@ public partial class App : Application
         base.OnStartup(e);
         // Beklenmeyen hatalar da hata kaydina yazilir (uygulama yine kapanir; kayit nedenini gosterir).
         DispatcherUnhandledException += (_, a) => Log.Write($"arayüz hatası: {a.Exception}");
-        AppDomain.CurrentDomain.UnhandledException += (_, a) => Log.Write($"beklenmeyen hata: {a.ExceptionObject}");
+        AppDomain.CurrentDomain.UnhandledException += (_, a) =>
+            Log.Write($"{(a.IsTerminating ? "kapanıyor: çökme · " : "")}beklenmeyen hata: {a.ExceptionObject}");
         TaskScheduler.UnobservedTaskException += (_, a) => Log.Write($"görev hatası: {a.Exception}");
         // Gelistirme: --no-hardware --snapshot <yol> pencereyi PNG'ye cizip kapanir. Donanima yazmaz, tek kopya kilidine dokunmaz.
         int snap = Array.IndexOf(e.Args, "--snapshot");
@@ -47,12 +48,22 @@ public partial class App : Application
         _single = new Mutex(true, @"Local\LedSync.App", out bool first);
         if (!first)
         {
+            Log.Write("ikinci kopya açılmak istendi; zaten çalıştığı için kapatıldı");
             MessageBox.Show("RHZ LED Controller zaten çalışıyor. Sistem tepsisindeki simgeden açabilirsin.", "RHZ LED Controller");
             Shutdown();
             return;
         }
 
         LightController.NoHardware = e.Args.Contains("--no-hardware");
+        // Acilis ve kapanis da kayda yazilir: uygulama kapali bulundugunda nedeni (cikis, Windows, cokme) anlasilsin.
+        var version = typeof(App).Assembly.GetName().Version;
+        Log.Write($"başladı: sürüm {version}, PID {Environment.ProcessId}{(e.Args.Length > 0 ? $", argümanlar: {string.Join(' ', e.Args)}" : "")}");
+        // Uyku/uyanma: isiklarin uyanmadan sonra yanlis kalmasi (AGENTS.md madde 6) incelenirken zaman cizelgesi icin.
+        Microsoft.Win32.SystemEvents.PowerModeChanged += (_, a) =>
+        {
+            if (a.Mode is Microsoft.Win32.PowerModes.Suspend or Microsoft.Win32.PowerModes.Resume)
+                Log.Write(a.Mode == Microsoft.Win32.PowerModes.Suspend ? "bilgisayar uykuya geçiyor" : "bilgisayar uyandı");
+        };
         _window = new MainWindow();
         _window.LightChanged += UpdateTray;
 
@@ -145,8 +156,17 @@ public partial class App : Application
         if (_powerItem is not null) _powerItem.Text = s.On ? "Işıkları kapat" : "Işıkları aç";
     }
 
+    // Windows kapanirken ya da oturum kapanirken: pencere tepsiye gizlenmeye calismasin, ayarlari kaydedip kapansin.
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        Log.Write($"kapanıyor: Windows {(e.ReasonSessionEnding == ReasonSessionEnding.Shutdown ? "kapanıyor ya da yeniden başlıyor" : "oturumu kapanıyor")}");
+        if (_window is not null) _window.ExitRequested = true;
+        base.OnSessionEnding(e);
+    }
+
     void ExitApp()
     {
+        Log.Write("kapanıyor: tepsiden Çıkış");
         if (_window is not null)
         {
             _window.ExitRequested = true;
@@ -160,6 +180,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // Anlik goruntu modu ve ikinci kopya kayda "kapandi" yazmaz (bu kopyalar hic baslamadi).
+        if (_window is not null) Log.Write($"kapandı (çıkış kodu {e.ApplicationExitCode})");
         _single?.Dispose();
         base.OnExit(e);
     }

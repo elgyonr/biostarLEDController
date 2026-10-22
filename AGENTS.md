@@ -35,6 +35,8 @@ BIOSTAR **B650M-SILVER** anakartlı tek bir Windows 11 bilgisayarın RGB ışık
 4. **Kasa görseli fotoğraf değildir.** Kullanıcının gerçek kasa fotoğrafı görsel olarak kullanılmaz. `CasePreview.xaml` vektör çizimdir.
 5. **Rhizzu R sembolünün şekli değişmez.** Üzerine RGB işlem yapılabilir. Seçilen tasarım "A varyantı": beyaz R ve RGB şeritler.
 6. **Hata mesajları arayüzde görünmez.** Hepsi `%AppData%\LedSync\rlc-hata.log` dosyasına yazılır. Tek istisna çakışma uyarısı (ör. OpenRGB çalışıyor).
+   - Aynı kayda yaşam döngüsü satırları da düşer: `başladı` (sürüm, PID), `kapanıyor: tepsiden Çıkış`, `kapanıyor: Windows …` (`OnSessionEnding`), `kapanıyor: çökme`, `kapanıyor: deploy.ps1 zorla kapatti`, `kapandı (çıkış kodu)`, `ikinci kopya…`, uyku/uyanma.
+   - "Uygulama neden kapanmış?" sorusunda önce bu satırlara bak. `başladı`'dan sonra hiçbir `kapanıyor` satırı yoksa süreç dışarıdan zorla öldürülmüş demektir.
 7. **Senkron kuralı:**
    - Oyun uyarıları (LoL düşük can) yalnızca Sync açıkken çalışır. Böylece uyarı hiçbir zaman tek bir cihazda yanıp sönmez.
    - Müzik efekti ve ön fan donanım efektleri yalnızca Sync kapalıyken sunulur.
