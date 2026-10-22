@@ -192,7 +192,13 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 10. **Tepsi menüsünde hızlı renk ve efekt seçimi yok.** Şu an yalnızca ışık aç/kapat, aç ve çıkış var.
 
 **Özellik**
-11. **CS2 Game State Integration.** En güçlü resmi yol: yerel HTTP üzerinden can, flash ve bomba durumu gönderir. LoL'deki `LolMonitor` deseni izlenebilir; yapılandırma dosyası CS2'nin `cfg` klasörüne yazılır. Diğer adaylar: Rocket League Stats API, Forza/F1 UDP telemetrisi.
+11. **CS2 Game State Integration.** En güçlü resmi yol: yerel HTTP üzerinden can, flash ve bomba durumu gönderir. LoL'deki `LolMonitor` deseni izlenebilir; yapılandırma dosyası CS2'nin `cfg` klasörüne yazılır. Bu makinede SteelSeries ve Logitech de CS2'den GSI ile veri alıyor (`gamestate_integration_steelseries.cfg`, `..._logitech.cfg`); üçüncü bir cfg dosyası onlarla çakışmaz. Diğer adaylar: Rocket League Stats API, Forza/F1 UDP telemetrisi.
+    - **Valorant (22 Ekim 2026 araştırması):**
+      - Tek canlı kaynak Overwolf GEP. Bu kaynakta canlı `me.health` ile `kill`, `headshot`, `death`, `match_outcome` ve `spike_*` olayları var; verilen hasar ise yalnızca tur sonunda (`round_report`) geliyor.
+      - Overwolf'un Riot uyum sayfasına göre özel (kişisel) Valorant uygulamaları artık kabul edilmiyor. Herkese açık uygulamalar için Riot **ve** Overwolf onayı gerekiyor.
+      - Riot'un genel kuralına göre oyunculara hizmet eden ürünler, API kullanmasa bile Riot'a kaydedilmeli.
+      - Overwolf verinin nasıl elde edildiğini açıklamıyor.
+      - Sonuç: onay alınmadan Valorant köprüsü yazılmaz.
 12. **Oyun uyarılarını genelleştirmek.** Ortak bir `IGameMonitor` arayüzü ve olay → efekt eşlemesi tanımlanabilir. Örnekler: düşük can → kırmızı yanıp sönme, flash → beyaz parlama, tur kazanma → yeşil.
 13. **Çakışma uyarısı.** Kullanıcıya kaldırılması önerildi, henüz yanıt yok.
 
