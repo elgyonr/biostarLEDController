@@ -1,0 +1,4 @@
+# Imzali modul ve simgeler hic donusturulmez; satir sonu cevirisi imzayi bozar.
+*.bin binary
+*.ico binary
+*.png binary

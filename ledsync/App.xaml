@@ -1,0 +1,261 @@
+<Application x:Class="LedSync.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             ThemeMode="Light"
+             ShutdownMode="OnExplicitShutdown">
+  <!-- achromatic-ledger (DESIGN.md): arayuzde renk yok; tek renk kullanicinin LED rengi, yalnizca veride.
+       Notr tonlar Rhizzu markasindan: Blackened Blue #1E2732 (yazi, birincil, vurgu) ve Cool Gray #AEB7C2 ailesi. -->
+  <Application.Resources>
+    <ResourceDictionary>
+      <SolidColorBrush x:Key="Ground" Color="#F4F6F8"/>
+      <SolidColorBrush x:Key="Surface" Color="#FFFFFF"/>
+      <SolidColorBrush x:Key="PanelFill" Color="#F9FAFB"/>
+      <SolidColorBrush x:Key="Active" Color="#E6EAEE"/>
+      <SolidColorBrush x:Key="Line" Color="#E1E5EA"/>
+      <SolidColorBrush x:Key="Rule" Color="#EEF1F4"/>
+      <SolidColorBrush x:Key="Ink" Color="#1E2732"/>
+      <SolidColorBrush x:Key="Muted" Color="#5E6A78"/>
+      <SolidColorBrush x:Key="Primary" Color="#1E2732"/>
+      <SolidColorBrush x:Key="Secondary" Color="#E4E8EC"/>
+      <SolidColorBrush x:Key="Stage" Color="#1A212A"/>
+      <SolidColorBrush x:Key="PosBg" Color="#DCFAE5"/>
+      <SolidColorBrush x:Key="PosInk" Color="#04250E"/>
+      <SolidColorBrush x:Key="WarnBg" Color="#FFFBEB"/>
+      <SolidColorBrush x:Key="WarnLine" Color="#FDE68A"/>
+      <SolidColorBrush x:Key="WarnInk" Color="#92400E"/>
+      <SolidColorBrush x:Key="NegBg" Color="#FFEDEA"/>
+      <SolidColorBrush x:Key="NegInk" Color="#831C1E"/>
+      <SolidColorBrush x:Key="NeuBg" Color="#EEF1F4"/>
+      <SolidColorBrush x:Key="NeuInk" Color="#3F4C5B"/>
+      <SolidColorBrush x:Key="OnPrimary" Color="#FFFFFF"/>
+      <SolidColorBrush x:Key="Hover" Color="#DDE2E8"/>
+      <SolidColorBrush x:Key="Pressed" Color="#D0D7DE"/>
+      <SolidColorBrush x:Key="SwitchOff" Color="#C9D1DA"/>
+      <!-- Bu degerler acik tema; Theme.cs acilista ve tema degisince hepsini (koyu dahil) yeniden yazar.
+           Bu yuzden stiller renk tokenlarini DynamicResource ile okur. -->
+      <FontFamily x:Key="Face">Segoe UI Variable Text, Segoe UI</FontFamily>
+      <!-- Fluent tema kaydirici ve onay kutusunu sistem vurgu renginden boyar; vurgu ailesi marka lacivertine esitlenir. -->
+      <Color x:Key="SystemAccentColor">#1E2732</Color>
+      <Color x:Key="SystemAccentColorLight1">#2E3A48</Color>
+      <Color x:Key="SystemAccentColorLight2">#3F4C5B</Color>
+      <Color x:Key="SystemAccentColorLight3">#5E6A78</Color>
+      <Color x:Key="SystemAccentColorDark1">#1E2732</Color>
+      <Color x:Key="SystemAccentColorDark2">#161D25</Color>
+      <Color x:Key="SystemAccentColorDark3">#0F141A</Color>
+      <!-- .NET 9+ SystemColors vurgu anahtarlari: Fluent kaydirici ve onay kutusu bunlari kullaniyor. -->
+      <Color x:Key="{x:Static SystemColors.AccentColorKey}">#1E2732</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorBrushKey}" Color="#1E2732"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorLight1Key}">#2E3A48</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorLight1BrushKey}" Color="#2E3A48"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorLight2Key}">#3F4C5B</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorLight2BrushKey}" Color="#3F4C5B"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorLight3Key}">#5E6A78</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorLight3BrushKey}" Color="#5E6A78"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorDark1Key}">#1E2732</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorDark1BrushKey}" Color="#1E2732"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorDark2Key}">#161D25</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorDark2BrushKey}" Color="#161D25"/>
+      <Color x:Key="{x:Static SystemColors.AccentColorDark3Key}">#0F141A</Color>
+      <SolidColorBrush x:Key="{x:Static SystemColors.AccentColorDark3BrushKey}" Color="#0F141A"/>
+      <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#1E2732"/>
+      <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#2E3A48"/>
+      <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#3F4C5B"/>
+      <SolidColorBrush x:Key="AccentFillColorDisabledBrush" Color="#AEB7C2"/>
+
+      <Style x:Key="H1" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="24"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+      </Style>
+      <Style x:Key="H2" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="16"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Margin" Value="0,8,0,0"/>
+      </Style>
+      <Style x:Key="Desc" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+        <Setter Property="TextWrapping" Value="Wrap"/>
+        <Setter Property="Margin" Value="0,4,0,0"/>
+      </Style>
+      <Style x:Key="Small" TargetType="TextBlock">
+        <Setter Property="FontSize" Value="12"/>
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+      </Style>
+      <!-- Bolum: 340 etiket + 40 bosluk + panel; ustte tek cizgi, 32 px ic bosluk. -->
+      <Style x:Key="Section" TargetType="Grid">
+        <Setter Property="Margin" Value="0,0,0,0"/>
+      </Style>
+      <Style x:Key="Panel" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource PanelFill}"/>
+        <Setter Property="CornerRadius" Value="16"/>
+        <Setter Property="Padding" Value="16"/>
+      </Style>
+      <Style x:Key="Pill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="11"/>
+        <Setter Property="Height" Value="22"/>
+        <Setter Property="Padding" Value="8,0"/>
+        <Setter Property="VerticalAlignment" Value="Center"/>
+      </Style>
+      <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="Background" Value="{DynamicResource Secondary}"/>
+        <Setter Property="BorderThickness" Value="0"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+      </Style>
+      <!-- Tek secimli secenek: secili olan yakin siyah dolgu, beyaz yazi; digerleri ikincil gri. -->
+      <Style x:Key="Choice" TargetType="Button">
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Padding" Value="12,0"/>
+        <Setter Property="Margin" Value="0,0,8,8"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="Box" CornerRadius="8" Background="{DynamicResource Secondary}" Padding="{TemplateBinding Padding}"
+                      BorderBrush="{DynamicResource Ink}" BorderThickness="0">
+                <ContentPresenter VerticalAlignment="Center" HorizontalAlignment="Center"/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Box" Property="Background" Value="{DynamicResource Hover}"/>
+                </Trigger>
+                <Trigger Property="Tag" Value="selected">
+                  <Setter TargetName="Box" Property="Background" Value="{DynamicResource Primary}"/>
+                  <Setter Property="Foreground" Value="{DynamicResource OnPrimary}"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Box" Property="BorderThickness" Value="2"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <!-- Ac/kapa anahtari (CheckBox): kapaliyken sade gri iz; acikken iz, simgedeki RGB seritlerin gecisiyle yanar.
+           Dugme 0.18 sn'de kayar; klavye odaginda izin cevresinde ince cizgi. -->
+      <Style x:Key="Switch" TargetType="CheckBox">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="CheckBox">
+              <StackPanel Orientation="Horizontal" Background="Transparent">
+                <ContentPresenter VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Grid Width="48" Height="26">
+                  <Border x:Name="Track" CornerRadius="13" Background="{DynamicResource SwitchOff}"/>
+                  <Border x:Name="Glow" CornerRadius="13" Opacity="0">
+                    <Border.Background>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="1,0">
+                        <GradientStop Color="#FF2D55" Offset="0"/>
+                        <GradientStop Color="#FF9500" Offset="0.2"/>
+                        <GradientStop Color="#FFE600" Offset="0.38"/>
+                        <GradientStop Color="#34E36B" Offset="0.55"/>
+                        <GradientStop Color="#00D5FF" Offset="0.72"/>
+                        <GradientStop Color="#2F6BFF" Offset="0.86"/>
+                        <GradientStop Color="#B44CFF" Offset="1"/>
+                      </LinearGradientBrush>
+                    </Border.Background>
+                  </Border>
+                  <Border x:Name="Focus" CornerRadius="15" Margin="-3" BorderBrush="{DynamicResource Ink}" BorderThickness="0"/>
+                  <Ellipse x:Name="Knob" Width="20" Height="20" Fill="White" HorizontalAlignment="Left" Margin="3,0,0,0">
+                    <Ellipse.RenderTransform><TranslateTransform/></Ellipse.RenderTransform>
+                    <Ellipse.Effect><DropShadowEffect BlurRadius="4" ShadowDepth="1" Opacity="0.3"/></Ellipse.Effect>
+                  </Ellipse>
+                </Grid>
+              </StackPanel>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                  <Trigger.EnterActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                         To="22" Duration="0:0:0.18"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.18"/>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </Trigger.EnterActions>
+                  <Trigger.ExitActions>
+                    <BeginStoryboard>
+                      <Storyboard>
+                        <DoubleAnimation Storyboard.TargetName="Knob" Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                         To="0" Duration="0:0:0.18"><DoubleAnimation.EasingFunction><CubicEase EasingMode="EaseOut"/></DoubleAnimation.EasingFunction></DoubleAnimation>
+                        <DoubleAnimation Storyboard.TargetName="Glow" Storyboard.TargetProperty="Opacity" To="0" Duration="0:0:0.18"/>
+                      </Storyboard>
+                    </BeginStoryboard>
+                  </Trigger.ExitActions>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Focus" Property="BorderThickness" Value="1.5"/>
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                  <Setter Property="Opacity" Value="0.4"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <!-- Ust sekme: secili olan koyu yazi ve alt cizgi. -->
+      <Style x:Key="Tab" TargetType="Button">
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+        <Setter Property="FontWeight" Value="SemiBold"/>
+        <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
+        <Setter Property="Margin" Value="0,0,20,0"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Border x:Name="Line" Background="Transparent" BorderBrush="{DynamicResource Ink}" BorderThickness="0" Padding="2,8">
+                <ContentPresenter/>
+              </Border>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                  <Setter TargetName="Line" Property="BorderThickness" Value="0,0,0,1"/>
+                </Trigger>
+                <Trigger Property="Tag" Value="selected">
+                  <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                  <Setter TargetName="Line" Property="BorderThickness" Value="0,0,0,2"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+      <Style x:Key="Swatch" TargetType="Button">
+        <Setter Property="Width" Value="36"/>
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Margin" Value="0,0,8,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Grid>
+                <Border x:Name="Ring" CornerRadius="9" BorderBrush="{DynamicResource Ink}" BorderThickness="0" Margin="-4"/>
+                <Border CornerRadius="6" Background="{TemplateBinding Background}" BorderBrush="#33808080" BorderThickness="1"/>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="Tag" Value="selected">
+                  <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
+    </ResourceDictionary>
+  </Application.Resources>
+</Application>

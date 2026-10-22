@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>RLEDC</AssemblyName>
+    <RootNamespace>LedSync</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\rlc.ico</ApplicationIcon>
+    <Product>RHZ LED Controller</Product>
+    <AssemblyTitle>RHZ LED Controller</AssemblyTitle>
+    <Company>Rhizzu</Company>
+    <!-- WPF0001: Fluent ThemeMode .NET 9+'da deneysel olarak isaretli. -->
+    <NoWarn>$(NoWarn);WPF0001</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="..\ledtest\Core.cs" Link="Hardware\Core.cs" />
+    <Compile Include="..\ledtest\NvGpu.cs" Link="Hardware\NvGpu.cs" />
+    <!-- Imzali PawnIO modulu (SHA-256 91f9b4b1...56e5); Motherboard onu exe'nin yanindaki modules\ klasorunde arar.
+         Kaynak kopya projede durur; bin\ silinse de kaybolmaz. -->
+    <None Include="modules\SmbusPIIX4.bin" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Marka simgeleri: Assets\RlcIcon.ps1 uretir. Pencere, baslik cubugu ve tepsi pack URI ile okur. -->
+    <Resource Include="Assets\rlc.ico" />
+    <Resource Include="Assets\rlc-off.ico" />
+    <Resource Include="Assets\rlc-256.png" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- WinForms'un ortuk using'leri WPF turleriyle cakisir (Application, Color, Button...); yalnizca NotifyIcon kullaniliyor. -->
+    <Using Remove="System.Windows.Forms" />
+    <Using Remove="System.Drawing" />
+  </ItemGroup>
+</Project>

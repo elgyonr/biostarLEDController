@@ -1,0 +1,33 @@
+# Public repoda yalnizca uygulama var: ledsync, ledtest ve belgeleri.
+# Asagidakiler yerel klasorde kalir, repoya girmez.
+
+# Derleme ciktilari (kurulu surum bin\ledsync de dahil; her zaman kaynaktan yeniden uretilir)
+bin/
+obj/
+*.user
+.vs/
+
+# Arastirma: tersine muhendislik dokumleri ve ureticinin dosyalari (telifli icerik)
+arastirma/
+*.rea-snapshot
+indirilenler/
+
+# Makineye ozel tani ciktilari
+diagnostics*.json
+
+# Eski notlar ve uygulamadan onceki prototipler (tarihsel)
+HANDOFF.md
+PROJE_NOTLARI.md
+README_PROTOTIP.md
+src/
+ledgui/
+tools/
+design/
+
+# Ajan araclari: disaridan alinmis beceriler ve calisma dosyalari
+.claude/
+.taste-skill/
+
+# Gecici ekran goruntuleri
+*.snap.png
+shot*.png

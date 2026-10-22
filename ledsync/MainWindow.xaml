@@ -1,0 +1,215 @@
+<Window x:Class="LedSync.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:LedSync"
+        Title="RHZ LED Controller" Icon="Assets/rlc.ico" Width="1000" Height="700"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanMinimize"
+        Background="{DynamicResource Ground}" FontFamily="{StaticResource Face}" FontSize="14"
+        Foreground="{DynamicResource Ink}">
+  <Window.InputBindings>
+    <KeyBinding Key="L" Modifiers="Ctrl" Command="{x:Static local:MainWindow.TogglePowerCommand}"/>
+  </Window.InputBindings>
+  <Window.CommandBindings>
+    <CommandBinding Command="{x:Static local:MainWindow.TogglePowerCommand}" Executed="OnTogglePower"/>
+  </Window.CommandBindings>
+  <!-- Kendi baslik cubugu: Windows cercevesi yok; surukleme, yuvarlak kose ve golge WindowChrome/DWM'den.
+       Boyut sabit (1000x700); kenardan yeniden boyutlandirma kapali. -->
+  <WindowChrome.WindowChrome>
+    <WindowChrome CaptionHeight="60" ResizeBorderThickness="0" GlassFrameThickness="0,0,0,1" CornerRadius="0" UseAeroCaptionButtons="False"/>
+  </WindowChrome.WindowChrome>
+  <Window.Resources>
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+    </Style>
+    <!-- Baslik cubugu dugmeleri (kucult, kapat): Windows 11 olculeri, kapat uzerinde kirmizi. -->
+    <Style x:Key="CaptionButton" TargetType="Button">
+      <Setter Property="Width" Value="46"/>
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+      <Setter Property="FontFamily" Value="Segoe Fluent Icons, Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bg" Background="Transparent" CornerRadius="6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Hover}"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Pressed}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="CloseButton" TargetType="Button" BasedOn="{StaticResource CaptionButton}">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bg" Background="Transparent" CornerRadius="6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bg" Property="Background" Value="#C42B1C"/>
+                <Setter Property="Foreground" Value="White"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bg" Property="Background" Value="#A82418"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <Border BorderBrush="{DynamicResource Line}" BorderThickness="1">
+  <Grid>
+    <Grid.RowDefinitions><RowDefinition Height="60"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+    <!-- Baslik cubugu: bos alanlardan surukleme; dugmeler ve sekmeler tiklanabilir. -->
+    <DockPanel Margin="20,0,10,0">
+      <Button DockPanel.Dock="Right" Style="{StaticResource CloseButton}" Content="&#xE8BB;" Click="OnCloseClick"
+              ToolTip="Tepsiye gizle" AutomationProperties.Name="Kapat"/>
+      <Button DockPanel.Dock="Right" Style="{StaticResource CaptionButton}" Content="&#xE921;" Click="OnMinimizeClick"
+              Margin="0,0,2,0" AutomationProperties.Name="Küçült"/>
+      <Button x:Name="ThemeButton" DockPanel.Dock="Right" Style="{StaticResource CaptionButton}" FontSize="14" Click="OnThemeClick"
+              Margin="0,0,2,0" AutomationProperties.Name="Tema"/>
+      <Image Source="Assets/rlc-256.png" Width="32" Height="32" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
+      <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Text="RHZ LED Controller"/>
+      <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="40,0,0,0">
+        <Button x:Name="LightTab" Style="{StaticResource Tab}" Content="Işık" Click="OnLightTab" WindowChrome.IsHitTestVisibleInChrome="True"/>
+        <Button x:Name="GameTab" Style="{StaticResource Tab}" Content="Oyun" Click="OnGameTab" WindowChrome.IsHitTestVisibleInChrome="True"/>
+      </StackPanel>
+    </DockPanel>
+
+  <!-- Tek ekran: solda kasa (Sync kapaliyken parca secimi), sagda secili sekmenin kontrolleri. -->
+  <Grid Grid.Row="1" Margin="24,4,24,24">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+
+    <Border Grid.Row="0" x:Name="Notice" Visibility="Collapsed" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource WarnLine}"
+            BorderThickness="1" CornerRadius="8" Padding="14,10" Margin="0,0,0,16">
+      <TextBlock x:Name="NoticeText" Foreground="{DynamicResource WarnInk}" TextWrapping="Wrap"/>
+    </Border>
+
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="24"/><ColumnDefinition Width="440"/></Grid.ColumnDefinitions>
+
+      <!-- Kasa zeminsiz: yalnizca kasanin kendisi. -->
+      <Grid>
+        <local:CasePreview x:Name="Preview" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,24"/>
+        <TextBlock x:Name="PickHint" Text="Ayarlamak istediğin parçaya tıkla" Style="{StaticResource Small}"
+                   HorizontalAlignment="Center" VerticalAlignment="Bottom" IsHitTestVisible="False"/>
+      </Grid>
+
+      <!-- Isiklari kapat: sag sutunun en altinda, sekmeden bagimsiz. -->
+      <Button x:Name="PowerButton" Grid.Column="2" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+              Content="Işıkları kapat" Click="OnPowerClick" ToolTip="Ctrl+L"/>
+
+      <!-- Isik sekmesi -->
+      <StackPanel x:Name="LightPanel" Grid.Column="2">
+        <DockPanel Margin="0,0,0,20">
+          <CheckBox x:Name="SyncSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" Content="Sync" VerticalAlignment="Center"
+                    Click="OnSyncSwitch" AutomationProperties.Name="Senkronizasyon"
+                    ToolTip="Açıkken üç parça tek ayarı paylaşır. Kapalıyken kasadan bir parça seçip ayrı ayarlarsın."/>
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock x:Name="TargetTitle" FontSize="16" FontWeight="SemiBold"/>
+            <TextBlock x:Name="TargetSub" Style="{StaticResource Small}" Margin="0,2,0,0"/>
+          </StackPanel>
+        </DockPanel>
+
+        <TextBlock Style="{StaticResource Label}" Text="Renk"/>
+        <WrapPanel x:Name="Swatches"/>
+        <!-- Ozel renk: son kutudan acilir; palet, secilen renk ve hex kodu. -->
+        <Popup x:Name="PickerPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6">
+          <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="12"
+                  Padding="16" Width="300" Margin="0,0,16,16">
+            <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.14"/></Border.Effect>
+            <StackPanel>
+              <local:ColorPicker x:Name="Picker"/>
+              <DockPanel Margin="0,16,0,0">
+                <Border x:Name="PickedDot" DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="6" BorderBrush="#33808080" BorderThickness="1"/>
+                <TextBox x:Name="HexBox" Margin="10,0,0,0" VerticalContentAlignment="Center" LostKeyboardFocus="OnHexCommit" KeyDown="OnHexKey"
+                         AutomationProperties.Name="Hex renk kodu"/>
+              </DockPanel>
+            </StackPanel>
+          </Border>
+        </Popup>
+
+        <DockPanel Margin="0,20,0,4">
+          <TextBlock x:Name="BrightValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"/>
+          <TextBlock FontWeight="SemiBold" Text="Parlaklık"/>
+        </DockPanel>
+        <Slider x:Name="Bright" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1"
+                ValueChanged="OnBrightness" AutomationProperties.Name="Parlaklık"/>
+
+        <TextBlock Style="{StaticResource Label}" Text="Efekt" Margin="0,20,0,8"/>
+        <!-- Sabit 3 sutun: dugmeler satir sonuna gore kaymaz; sagdaki -8 dugme boslugunu dengeler. -->
+        <UniformGrid x:Name="EffectChoices" Columns="3" Margin="0,0,-8,0"/>
+        <!-- On fanlarin kendi efektleri: yalnizca Sync kapali ve on fanlar seciliyken. -->
+        <StackPanel x:Name="HardwareBlock">
+          <TextBlock Style="{StaticResource Small}" Text="Ön fanların kendi efektleri" Margin="0,4,0,8"/>
+          <UniformGrid x:Name="HardwareChoices" Columns="3" Margin="0,0,-8,0"/>
+        </StackPanel>
+        <StackPanel x:Name="SpeedRow">
+          <DockPanel Margin="0,8,0,4">
+            <TextBlock x:Name="SpeedValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"/>
+            <TextBlock FontWeight="SemiBold" Text="Hız"/>
+          </DockPanel>
+          <Slider x:Name="SpeedSlider" Minimum="1" Maximum="10" SmallChange="1" LargeChange="1" IsSnapToTickEnabled="True" TickFrequency="1"
+                  ValueChanged="OnSpeed" AutomationProperties.Name="Efekt hızı"/>
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Oyun sekmesi -->
+      <StackPanel x:Name="GamePanel" Grid.Column="2" Visibility="Collapsed">
+        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Oyun özellikleri"/>
+        <TextBlock Style="{StaticResource Desc}" Text="Oyun olaylarında ışıklar üç parçada birlikte tepki verir. Bunun için Sync açık olmalı."/>
+        <Border x:Name="GameSyncNote" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource WarnLine}" BorderThickness="1"
+                CornerRadius="8" Padding="12,8" Margin="0,16,0,0">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Content="Sync'i aç" Height="30" Click="OnEnableSync"/>
+            <TextBlock Foreground="{DynamicResource WarnInk}" TextWrapping="Wrap" VerticalAlignment="Center"
+                       Text="Sync kapalı; oyun özellikleri çalışmaz."/>
+          </DockPanel>
+        </Border>
+        <Border Style="{StaticResource Panel}" Margin="0,16,0,0">
+          <StackPanel>
+            <DockPanel>
+              <CheckBox x:Name="LolToggle" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="OnLolToggle"
+                        AutomationProperties.Name="League of Legends can uyarısı"/>
+              <Border Width="44" Height="44" CornerRadius="10" Background="{DynamicResource Stage}" ClipToBounds="True">
+                <Grid>
+                  <TextBlock x:Name="LolIconFallback" Text="LoL" Foreground="#C8AA6E" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Image x:Name="LolIcon" Width="36" Height="36" RenderOptions.BitmapScalingMode="HighQuality"/>
+                </Grid>
+              </Border>
+              <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
+                <TextBlock FontWeight="SemiBold" Text="League of Legends"/>
+                <TextBlock x:Name="LolStatus" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+              </StackPanel>
+            </DockPanel>
+            <TextBlock Style="{StaticResource Small}" Margin="0,14,0,0" TextWrapping="Wrap"
+                       Text="Canın eşiğin altına düşünce üç parça birlikte kırmızı yanıp söner; can toparlanınca ışıklar eski haline döner."/>
+            <DockPanel x:Name="LolThresholdRow" Margin="0,12,0,0">
+              <TextBlock x:Name="LolThresholdValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"
+                         Width="44" TextAlignment="Right" VerticalAlignment="Center"/>
+              <TextBlock DockPanel.Dock="Left" Text="Can eşiği" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
+              <Slider x:Name="LolThreshold" Minimum="10" Maximum="60" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5"
+                      VerticalAlignment="Center" ValueChanged="OnLolThreshold" AutomationProperties.Name="Can eşiği"/>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </Grid>
+  </Grid>
+  </Grid>
+  </Border>
+</Window>
