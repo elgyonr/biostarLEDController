@@ -54,7 +54,24 @@ public partial class ColorPicker : UserControl
         Canvas.SetTop(Thumb, (1 - _s) * Area.ActualHeight - Thumb.Height / 2);
     }
 
-    void OnDown(object sender, MouseButtonEventArgs e) { _dragging = Area.CaptureMouse(); Pick(e.GetPosition(Area)); }
+    void OnKey(object sender, KeyEventArgs e)
+    {
+        bool fine = Keyboard.Modifiers.HasFlag(ModifierKeys.Shift);
+        double dh = fine ? 1 : 10, ds = fine ? 0.01 : 0.1;
+        switch (e.Key)
+        {
+            case Key.Left: _h = (_h - dh + 360) % 360; break;
+            case Key.Right: _h = (_h + dh) % 360; break;
+            case Key.Up: _s = Math.Min(1, _s + ds); break;
+            case Key.Down: _s = Math.Max(0, _s - ds); break;
+            default: return;
+        }
+        e.Handled = true;
+        Place();
+        ColorChanged?.Invoke(Hex(_h, _s));
+    }
+
+    void OnDown(object sender, MouseButtonEventArgs e) { Area.Focus(); _dragging = Area.CaptureMouse(); Pick(e.GetPosition(Area)); }
     void OnMove(object sender, MouseEventArgs e) { if (_dragging && Area.IsMouseCaptured) Pick(e.GetPosition(Area)); }
 
     void OnUp(object sender, MouseButtonEventArgs e)

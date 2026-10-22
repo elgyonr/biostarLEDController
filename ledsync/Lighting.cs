@@ -25,7 +25,8 @@ sealed class DeviceLight
     public bool Valid()
     {
         Speed = Math.Clamp(Speed, 1, 10);
-        Brightness = Math.Clamp(Brightness, 0, 100);
+        // %0 artik secilemez (kapatmak guc dugmesinin isi); eski kayitlardaki 0 varsayilana doner.
+        Brightness = Brightness <= 0 ? 80 : Math.Min(Brightness, 100);
         if (!LightState.IsHex(Color)) return false;
         // Eski surumlerden kalan koyu renkler ayni tonda tam parlakliga cekilir.
         Color = LightState.Bright(Color) ?? "#FFFFFF";

@@ -193,6 +193,27 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 15. **`MainWindow.xaml.cs` (yaklaşık 400 satır) ve `Lighting.cs` (yaklaşık 590 satır) büyüyor.** Sınıflar ayrı dosyalara bölünebilir: `Motherboard`, `GraphicsCard`, `Log` ve `Conflicts` bir `Hardware/` klasörüne taşınabilir.
 16. **`Local\LedSync.App` mutex'i yalnızca aynı oturumu kapsar.** Hızlı kullanıcı değiştirmede iki kopya aynı SMBus'a yazabilir. `Global\` önekine geçmek düşünülebilir.
 
+**Arayüz — değerlendirme önerileri (22 Ekim 2026)**
+
+Kaynak: Codex'in altı ekran görüntüsüne dayalı incelemesi, [Arayüz değerlendirmesi](arastirma/ARAYUZ_DEGERLENDIRMESI_2026-10-22.md). Rapor yerel `arastirma/` klasöründe, Git'te yok. Kullanıcı 22 Ekim'de "hepsini uygula" dedi. Kullanıcının daha önce açıkça verdiği kararlarla çelişen öneriler bilerek uygulanmadı.
+
+17. **Metinli parça seçimi** — **uygulanmadı (kullanıcı kararı).** Kullanıcı cihaz listesini kaldırtıp kasadan seçmeyi istedi. Önerinin klavye amacı başka yoldan karşılandı: Sync kapalıyken kasaya Tab ile gelinir, ok tuşlarıyla parça değişir.
+18. **Genel kontrollerin sabit konumu / "Birlikte / Ayrı"** — **uygulanmadı (kullanıcı kararı).** Güç düğmesinin sağ altta durması ve "Sync" adı kullanıcının seçimi. Sync anahtarının ipucu iki modu zaten anlatıyor.
+19. **Ön fan ayarlarını sadeleştirme** — **kısmen yapıldı.** Alt başlıktaki SMBus adresi ve bölge bilgisi ipucuna taşındı. Donanım efektlerini açılır bölüme toplamak uygulanmadı: bu efektler yalnızca Sync kapalıyken ve ön fanlar seçiliyken görünüyor, açılır bölüm her kullanımda bir tıklama ekler.
+20. **Koyu temada kasa ayrımı** — **yapıldı.** Kasa yüzleri `CaseTop`/`CaseSide`/`CaseFront` token'larıyla koyu temada bir ton açıldı, `CaseEdge` kenar çizgisi eklendi (açık temada saydam).
+21. **Renk ve oyun kontrolleri** — **yapıldı.**
+    - Özel renk kutusu yazılı "Özel" düğmesi oldu (`CustomSwatch` stili).
+    - LoL kartında kural özeti var ("Can %N altı → kırmızı yanıp sönme").
+    - "Önizle" düğmesi uyarıyı 3 saniye yalnızca ekrandaki kasada oynatır; LED'lere yazmaz.
+    - Oyun sekmesinde parça seçimi, seçim çerçevesi ve "parçaya tıkla" ipucu gizlendi.
+    - Sync önkoşulu artık yalnızca sarı bantta yazıyor.
+22. **Tema seçimi ve erişilebilirlik** — **kısmen yapıldı.**
+    - Tema düğmesi Sistem / Açık / Koyu menüsü açıyor ve seçili modun simgesini gösteriyor.
+    - Renk alanı ok tuşlarıyla kullanılabiliyor (Shift ile ince adım).
+    - Ekran okuyucu ve %125–%150 DPI denenmedi.
+
+Ayrıca: Parlaklık kaydırıcısının alt sınırı %1 oldu. Kayıtlı %0 değerler açılışta %80'e döner, çünkü %0 parlaklık "açık görünüp yanmayan parça" demekti; tamamen kapatmak güç düğmesinin işi.
+
 ## 9. Yeni bir ajan nereden başlamalı?
 
 1. Bu dosyayı oku. Ardından `ledsync/Lighting.cs` dosyasını oku: her şeyin merkezi orası.

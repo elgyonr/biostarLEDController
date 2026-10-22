@@ -29,6 +29,9 @@ static class Theme
         ("Pressed", "#D0D7DE", "#35414E"),
         ("SwitchOff", "#C9D1DA", "#3A4552"),
         ("Stage", "#1A212A", "#1A212A"),
+        // Kasanin dis yuzleri: acik zeminde zaten koyu bir nesne; koyu zeminde kaybolmasin diye bir ton acilir ve kenar alir.
+        ("CaseTop", "#262626", "#2A3139"), ("CaseSide", "#1B1B1B", "#20262D"), ("CaseFront", "#1F1F1F", "#252B33"),
+        ("CaseEdge", "#00000000", "#3E4956"),
         ("PosBg", "#DCFAE5", "#12301C"), ("PosInk", "#04250E", "#8BE3A6"),
         ("WarnBg", "#FFFBEB", "#2A2312"), ("WarnLine", "#FDE68A", "#5A4614"), ("WarnInk", "#92400E", "#F2C66D"),
         ("NegBg", "#FFEDEA", "#3A1D1D"), ("NegInk", "#831C1E", "#FF8F86"),

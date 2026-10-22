@@ -256,6 +256,40 @@
           </Setter.Value>
         </Setter>
       </Style>
+      <!-- Ozel renk kutusu: gokkusagi nokta + "Ozel" yazisi; hazir renklerle karismasin, paleti actigi belli olsun.
+           Arka plan (gokkusagi) koddan Background ile gelir. -->
+      <Style x:Key="CustomSwatch" TargetType="Button">
+        <Setter Property="Height" Value="36"/>
+        <Setter Property="Margin" Value="0,0,8,8"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+        <Setter Property="Template">
+          <Setter.Value>
+            <ControlTemplate TargetType="Button">
+              <Grid>
+                <Border x:Name="Ring" CornerRadius="9" BorderBrush="{DynamicResource Ink}" BorderThickness="0" Margin="-4"/>
+                <Border x:Name="Bg" CornerRadius="6" Background="{DynamicResource Secondary}" Padding="8,0,10,0">
+                  <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="18" Height="18" Fill="{TemplateBinding Background}" Stroke="#33808080" StrokeThickness="1"/>
+                    <TextBlock Margin="6,0,0,0" Text="{TemplateBinding Content}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                  </StackPanel>
+                </Border>
+              </Grid>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Setter TargetName="Bg" Property="Background" Value="{DynamicResource Hover}"/>
+                </Trigger>
+                <Trigger Property="Tag" Value="selected">
+                  <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
+                </Trigger>
+                <Trigger Property="IsKeyboardFocused" Value="True">
+                  <Setter TargetName="Ring" Property="BorderThickness" Value="2"/>
+                </Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate>
+          </Setter.Value>
+        </Setter>
+      </Style>
     </ResourceDictionary>
   </Application.Resources>
 </Application>

@@ -17,12 +17,12 @@ public partial class MainWindow : Window
         ("Camgöbeği", "#00FFFF"), ("Mavi", "#0000FF"), ("Mor", "#8000FF"), ("Beyaz", "#FFFFFF"),
     ];
 
-    // Kasadaki parcalar; teknik ayrintilar yalnizca alt basliktaki ipucunda.
-    static readonly (string id, string name, string detail)[] Parts =
+    // Kasadaki parcalar. Alt baslik sade; donanim yolu (adres, bolge) yalnizca ipucunda.
+    static readonly (string id, string name, string detail, string tech)[] Parts =
     [
-        (LightController.Fans, "Ön fanlar", "3 fan, ön mesh · SMBus 0x58, io bölgesi"),
-        (LightController.Cpu, "CPU soğutucu", "Üst 2 fan ve pompa · SMBus 0x58, h1 bölgesi"),
-        (LightController.Gpu, "Ekran kartı", "Palit RTX 4060 Dual, ön LED · NVIDIA NvAPI"),
+        (LightController.Fans, "Ön fanlar", "3 fan, ön mesh", "SMBus 0x58 · io bölgesi"),
+        (LightController.Cpu, "CPU soğutucu", "Üst 2 fan ve pompa", "SMBus 0x58 · h1 bölgesi"),
+        (LightController.Gpu, "Ekran kartı", "Palit RTX 4060 Dual, ön LED", "NVIDIA NvAPI"),
     ];
 
     readonly LightState _s = LightState.Load();
@@ -66,8 +66,8 @@ public partial class MainWindow : Window
             _swatchHex[b] = hex;
             Swatches.Children.Add(b);
         }
-        // Son kutu: ozel renk paleti. Gokkusagi dolgu "istedigin renk" demek.
-        _customSwatch = new Button { Style = (Style)FindResource("Swatch"), ToolTip = "Özel renk", Background = Rainbow() };
+        // Son kutu: ozel renk paleti. Yazili; gokkusagi nokta "istedigin renk" demek.
+        _customSwatch = new Button { Style = (Style)FindResource("CustomSwatch"), Content = "Özel", ToolTip = "Özel renk ve hex kodu", Background = Rainbow() };
         AutomationProperties_SetName(_customSwatch, "Özel renk");
         _customSwatch.Click += (_, _) => { PickerPopup.PlacementTarget = _customSwatch; PickerPopup.IsOpen = true; };
         Swatches.Children.Add(_customSwatch);
@@ -102,7 +102,12 @@ public partial class MainWindow : Window
         }
     }
 
-    bool Animating => (_s.Moving(Parts.Select(p => p.id), preview: true) || AlertActive) && IsVisible;
+    // "Onizle": uyari yalnizca ekrandaki kasada birkac saniye oynar; denetleyiciye (LED'lere) gitmez.
+    double _previewUntil;
+    bool Previewing => _clock.Elapsed.TotalSeconds < _previewUntil;
+    bool ScreenAlert => AlertActive || Previewing;
+
+    bool Animating => (_s.Moving(Parts.Select(p => p.id), preview: true) || ScreenAlert) && IsVisible;
     bool _rendering;
 
     void UpdateAnimation()
@@ -121,7 +126,15 @@ public partial class MainWindow : Window
         double t = _clock.Elapsed.TotalSeconds;
         if (t - _lastFrame < 1 / 30.0) return;
         _lastFrame = t;
-        Preview.Show(_s, t, AlertActive);
+        Preview.Show(_s, t, ScreenAlert);
+        // Onizleme bitince sabit isikta ciziciyi durdur.
+        if (_previewUntil > 0 && !Previewing) { _previewUntil = 0; UpdateAnimation(); }
+    }
+
+    void OnAlertPreview(object sender, RoutedEventArgs e)
+    {
+        _previewUntil = _clock.Elapsed.TotalSeconds + 3;
+        UpdateAnimation();
     }
 
     internal LightState State => _s;
@@ -184,16 +197,18 @@ public partial class MainWindow : Window
     // Sync kapaliyken kasadaki parcaya tiklamak onu duzenlemeye alir; Sync acikken tiklama bir sey yapmaz.
     void OnPart(string id)
     {
-        if (_s.Sync) return;
+        if (_s.Sync || _gameTab) return;
         _selected = id;
         Render();
     }
 
     void Render()
     {
-        Preview.Show(_s, _clock.Elapsed.TotalSeconds, AlertActive);
-        Preview.Select(_s.Sync ? null : _selected);
-        PickHint.Visibility = _s.Sync ? Visibility.Collapsed : Visibility.Visible;
+        Preview.Show(_s, _clock.Elapsed.TotalSeconds, ScreenAlert);
+        // Parca secimi yalnizca Isik sekmesinde anlamli; oyun kurali her zaman uc parcaya birden uygulanir.
+        bool picking = !_s.Sync && !_gameTab;
+        Preview.Select(picking ? _selected : null);
+        PickHint.Visibility = picking ? Visibility.Visible : Visibility.Collapsed;
         UpdateAnimation();
 
         LightTab.Tag = _gameTab ? null : "selected";
@@ -206,6 +221,7 @@ public partial class MainWindow : Window
         var part = Parts.First(p => p.id == _selected);
         TargetTitle.Text = _s.Sync ? "Tüm parçalar" : part.name;
         TargetSub.Text = _s.Sync ? "Ön fanlar, CPU soğutucu ve ekran kartı aynı ayarda" : part.detail;
+        TargetSub.ToolTip = _s.Sync ? null : part.tech;
         foreach (var (b, hex) in _swatchHex) b.Tag = hex == t.Color ? "selected" : null;
         _customSwatch.Tag = _swatchHex.ContainsValue(t.Color) ? null : "selected";
         if (!HexBox.IsKeyboardFocusWithin) HexBox.Text = t.Color;
@@ -251,8 +267,10 @@ public partial class MainWindow : Window
         LolToggle.IsChecked = _s.LolAlert;
         LolThresholdRow.Visibility = _s.LolAlert ? Visibility.Visible : Visibility.Collapsed;
         LolThresholdValue.Text = $"%{_s.LolThreshold}";
-        LolStatus.Text = !_s.Sync ? "Sync kapalıyken çalışmaz."
-            : !_s.LolAlert ? "Kapalı."
+        LolRule.Text = $"Can %{_s.LolThreshold} altı → kırmızı yanıp sönme";
+        // Sync kapaliyken onkosulu ustteki bant anlatir; burada yalnizca tercihin kendisi.
+        LolStatus.Text = !_s.LolAlert ? "Kapalı."
+            : !_s.Sync ? "Açık · Sync bekleniyor."
             : _hp is not double h ? "Açık · maç bekleniyor."
             : AlertActive ? $"Oyunda · can %{h * 100:0} · uyarı" : $"Oyunda · can %{h * 100:0}";
     }
@@ -280,7 +298,7 @@ public partial class MainWindow : Window
         _ctl.SetAlert(AlertActive);
         RenderLol();
         UpdateAnimation();
-        if (!_rendering) Preview.Show(_s, _clock.Elapsed.TotalSeconds, AlertActive);
+        if (!_rendering) Preview.Show(_s, _clock.Elapsed.TotalSeconds, ScreenAlert);
     }
 
     void OnSyncSwitch(object sender, RoutedEventArgs e) => SetSync(SyncSwitch.IsChecked == true);
@@ -333,11 +351,26 @@ public partial class MainWindow : Window
 
     void OnPowerClick(object sender, RoutedEventArgs e) => TogglePower();
 
-    // Tema dugmesi acik ve koyu arasinda gecer; secim kaydedilir ve artik Windows temasini izlemez.
+    static readonly (string mode, string name, string glyph)[] ThemeModes =
+        [("System", "Sistem", "\uE770"), ("Light", "Açık", "\uE706"), ("Dark", "Koyu", "\uE708")];
+
+    // Tema dugmesi menu acar: Sistem (Windows'u izler), Acik, Koyu. Secim kaydedilir.
     void OnThemeClick(object sender, RoutedEventArgs e)
     {
-        _s.Theme = Theme.IsDark ? "Light" : "Dark";
-        Theme.Apply(_s.Theme);
+        var menu = new ContextMenu { PlacementTarget = ThemeButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        foreach (var (mode, name, _) in ThemeModes)
+        {
+            var item = new MenuItem { Header = name, IsCheckable = true, IsChecked = _s.Theme == mode };
+            item.Click += (_, _) => SetTheme(mode);
+            menu.Items.Add(item);
+        }
+        menu.IsOpen = true;
+    }
+
+    void SetTheme(string mode)
+    {
+        _s.Theme = mode;
+        Theme.Apply(mode);
         RenderTheme();
         _save.Stop(); _save.Start();
     }
@@ -348,17 +381,19 @@ public partial class MainWindow : Window
         Dispatcher.BeginInvoke(() => { Theme.Apply(_s.Theme); RenderTheme(); });
     }
 
-    // Dugme gecilecek temayi gosterir: koyudayken gunes, aciktayken ay.
+    // Dugme secili tema modunu gosterir: Sistem ekran, Acik gunes, Koyu ay.
     internal void RenderTheme()
     {
-        ThemeButton.Content = Theme.IsDark ? "\uE706" : "\uE708";
-        ThemeButton.ToolTip = Theme.IsDark ? "Açık tema" : "Koyu tema";
+        var (_, name, glyph) = ThemeModes.FirstOrDefault(m => m.mode == _s.Theme, ThemeModes[0]);
+        ThemeButton.Content = glyph;
+        ThemeButton.ToolTip = $"Tema: {name}";
     }
     void OnTogglePower(object sender, ExecutedRoutedEventArgs e) => TogglePower();
 
     void OnBrightness(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
-        if (_loading) return;
+        // Minimum="1" XAML yuklenirken degeri 0'dan 1'e zorlar; o an diger kontroller henuz yok.
+        if (_loading || !IsInitialized) return;
         T.Brightness = (int)Math.Round(e.NewValue);
         Changed();
     }

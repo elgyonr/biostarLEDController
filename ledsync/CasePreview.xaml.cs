@@ -30,10 +30,16 @@ public partial class CasePreview : UserControl
 
     static (Shape, Brush, double) Frame(Shape s) => (s, s.Stroke, s.StrokeThickness);
 
-    // selected null: secim yok (Sync acik); parcalar tiklanamaz.
+    static readonly string[] Order = [LightController.Fans, LightController.Cpu, LightController.Gpu];
+    string? _selected;
+
+    // selected null: secim yok (Sync acik ya da Oyun sekmesi); parcalar tiklanamaz.
     internal void Select(string? selected)
     {
+        _selected = selected;
         Cursor = selected is null ? null : Cursors.Hand;
+        // Klavye: secim acikken Tab ile kasaya gelinir, ok tuslariyla parcalar arasinda gezilir.
+        Focusable = IsTabStop = selected is not null;
         foreach (var (id, shapes) in _frames)
             foreach (var (shape, stroke, thickness) in shapes)
             {
@@ -41,6 +47,17 @@ public partial class CasePreview : UserControl
                 shape.Stroke = on ? SelectedStroke : stroke;
                 shape.StrokeThickness = on ? thickness + 1.5 : thickness;
             }
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (_selected is null) return;
+        int step = e.Key switch { Key.Right or Key.Down => 1, Key.Left or Key.Up => -1, _ => 0 };
+        if (step == 0) return;
+        int i = Array.IndexOf(Order, _selected);
+        PartClicked?.Invoke(Order[(i + step + Order.Length) % Order.Length]);
+        e.Handled = true;
     }
 
     void OnPart(object sender, MouseButtonEventArgs e)

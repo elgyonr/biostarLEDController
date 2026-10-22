@@ -147,7 +147,8 @@
           <TextBlock x:Name="BrightValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"/>
           <TextBlock FontWeight="SemiBold" Text="Parlaklık"/>
         </DockPanel>
-        <Slider x:Name="Bright" Minimum="0" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1"
+        <!-- En az %1: tamamen kapatmak "Isiklari kapat"in isi; %0 parlaklik acik gorunup yanmayan parca demekti. -->
+        <Slider x:Name="Bright" Minimum="1" Maximum="100" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="1"
                 ValueChanged="OnBrightness" AutomationProperties.Name="Parlaklık"/>
 
         <TextBlock Style="{StaticResource Label}" Text="Efekt" Margin="0,20,0,8"/>
@@ -171,7 +172,7 @@
       <!-- Oyun sekmesi -->
       <StackPanel x:Name="GamePanel" Grid.Column="2" Visibility="Collapsed">
         <TextBlock FontSize="16" FontWeight="SemiBold" Text="Oyun özellikleri"/>
-        <TextBlock Style="{StaticResource Desc}" Text="Oyun olaylarında ışıklar üç parçada birlikte tepki verir. Bunun için Sync açık olmalı."/>
+        <TextBlock Style="{StaticResource Desc}" Text="Oyun olaylarında ışıklar üç parçada birlikte tepki verir."/>
         <Border x:Name="GameSyncNote" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource WarnLine}" BorderThickness="1"
                 CornerRadius="8" Padding="12,8" Margin="0,16,0,0">
           <DockPanel>
@@ -196,8 +197,14 @@
                 <TextBlock x:Name="LolStatus" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,2,0,0"/>
               </StackPanel>
             </DockPanel>
-            <TextBlock Style="{StaticResource Small}" Margin="0,14,0,0" TextWrapping="Wrap"
-                       Text="Canın eşiğin altına düşünce üç parça birlikte kırmızı yanıp söner; can toparlanınca ışıklar eski haline döner."/>
+            <!-- Kural ozeti once, ayrinti sonra. Onizleme yalnizca ekrandaki kasada oynar; LED'lere yazilmaz. -->
+            <DockPanel Margin="0,14,0,0">
+              <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Content="Önizle" Height="30" Click="OnAlertPreview"
+                      ToolTip="Uyarıyı 3 saniye ekrandaki kasada gösterir; LED'lere yazılmaz."/>
+              <TextBlock x:Name="LolRule" FontWeight="SemiBold" VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock Style="{StaticResource Small}" Margin="0,6,0,0" TextWrapping="Wrap"
+                       Text="Can toparlanınca ışıklar eski haline döner."/>
             <DockPanel x:Name="LolThresholdRow" Margin="0,12,0,0">
               <TextBlock x:Name="LolThresholdValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"
                          Width="44" TextAlignment="Right" VerticalAlignment="Center"/>

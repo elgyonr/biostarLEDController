@@ -4,8 +4,9 @@
              AutomationProperties.Name="Renk seçici">
   <!-- Tek alan: yatayda renk tonu, dikeyde doygunluk (ustte tam renk, altta beyaz). Koyuluk yok:
        LED'de koyu renk yalnizca sonuk isik demek; parlakligi kaydirici belirler. -->
-  <Grid x:Name="Area" Height="190" Cursor="Cross" Background="Transparent"
-        MouseLeftButtonDown="OnDown" MouseMove="OnMove" MouseLeftButtonUp="OnUp">
+  <!-- Klavye: sol/sag ton, yukari/asagi doygunluk; Shift ile ince adim. -->
+  <Grid x:Name="Area" Height="190" Cursor="Cross" Background="Transparent" Focusable="True"
+        MouseLeftButtonDown="OnDown" MouseMove="OnMove" MouseLeftButtonUp="OnUp" KeyDown="OnKey">
     <Border CornerRadius="8">
       <Border.Background>
         <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
