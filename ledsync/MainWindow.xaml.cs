@@ -74,6 +74,7 @@ public partial class MainWindow : Window
         Picker.ColorChanged += SetColor;
         AddChoices(EffectChoices, Effects.All);
         AddChoices(HardwareChoices, Effects.Hardware.Select(h => (h.id, h.name, h.desc)));
+        BuildAlertControls();
         Preview.PartClicked += OnPart;
         if (GameIcons.League() is { } icon) { LolIcon.Source = icon; LolIconFallback.Visibility = Visibility.Collapsed; }
 
@@ -283,8 +284,16 @@ public partial class MainWindow : Window
         LolToggle.IsEnabled = _s.Sync;
         LolToggle.IsChecked = _s.LolAlert;
         LolThresholdRow.Visibility = _s.LolAlert ? Visibility.Visible : Visibility.Collapsed;
+        LolLightBlock.Visibility = LolThresholdRow.Visibility;
+        var al = _s.LolLight;
+        foreach (var (b, e) in _alertEffects) b.Tag = e == al.Effect ? "selected" : null;
+        foreach (var (b, hex) in _alertSwatchHex) b.Tag = hex == al.Color ? "selected" : null;
+        _alertCustom.Tag = _alertSwatchHex.ContainsValue(al.Color) ? null : "selected";
+        if (!AlertHex.IsKeyboardFocusWithin) AlertHex.Text = al.Color;
+        AlertDot.Background = Brush(al.Color);
+        AlertPicker.SetColor(al.Color);
         LolThresholdValue.Text = $"%{_s.LolThreshold}";
-        LolRule.Text = $"Can %{_s.LolThreshold} altı → kırmızı yanıp sönme";
+        LolRule.Text = $"Can %{_s.LolThreshold} altı → {ColorName(al.Color)} {AlertEffectName(al.Effect).ToLower(Tr)}";
         // Sync kapaliyken onkosulu ustteki bant anlatir; burada yalnizca tercihin kendisi.
         LolStatus.Text = !_s.LolAlert ? "Kapalı."
             : !_s.Sync ? "Açık · Sync bekleniyor."
@@ -339,6 +348,76 @@ public partial class MainWindow : Window
         _s.LolAlert = LolToggle.IsChecked == true;
         UpdateLol();
         _save.Stop(); _save.Start();
+    }
+
+    // --- Dusuk can uyari isigi (Oyun sekmesi): efekt + renk ---
+    static readonly System.Globalization.CultureInfo Tr = new("tr-TR");
+    readonly Dictionary<Button, LightEffect> _alertEffects = [];
+    readonly Dictionary<Button, string> _alertSwatchHex = [];
+    Button _alertCustom = null!;
+
+    static string AlertEffectName(LightEffect e) => e switch
+    {
+        LightEffect.Blink => "Yanıp sönme", LightEffect.Breath => "Nefes", _ => "Sabit",
+    };
+
+    static string ColorName(string hex) => SwatchColors.FirstOrDefault(c => c.hex == hex).name?.ToLower(Tr) ?? hex;
+
+    void BuildAlertControls()
+    {
+        foreach (var e in LightState.LolEffects)
+        {
+            var b = new Button { Style = (Style)FindResource("Choice"), Content = AlertEffectName(e) };
+            b.Click += (_, _) => { _s.LolLight.Effect = e; AlertLightChanged(); };
+            _alertEffects[b] = e;
+            AlertEffects.Children.Add(b);
+        }
+        // Kart ici dar (408 px): kutular 32 px, ozel dugme ayni satira sigar.
+        foreach (var (name, hex) in SwatchColors)
+        {
+            var b = new Button { Style = (Style)FindResource("Swatch"), Background = Brush(hex), ToolTip = name, Width = 32, Height = 32 };
+            AutomationProperties_SetName(b, name);
+            b.Click += (_, _) => SetAlertColor(hex);
+            _alertSwatchHex[b] = hex;
+            AlertSwatches.Children.Add(b);
+        }
+        _alertCustom = new Button { Style = (Style)FindResource("CustomSwatch"), Content = "Özel", Height = 32, ToolTip = "Özel renk ve hex kodu", Background = Rainbow() };
+        _alertCustom.Click += (_, _) => { AlertPickerPopup.PlacementTarget = _alertCustom; AlertPickerPopup.IsOpen = true; };
+        AlertSwatches.Children.Add(_alertCustom);
+        AlertPicker.ColorChanged += SetAlertColor;
+    }
+
+    void SetAlertColor(string hex)
+    {
+        if (LightState.Bright(hex) is not { } bright) return;
+        // Uyari Nefes'i tek renkli nabizdir: ikinci renk birinciye esitlenir.
+        _s.LolLight.Color = _s.LolLight.Color2 = bright;
+        AlertLightChanged();
+    }
+
+    // Degisiklik kaydedilir, denetleyiciye gider ve kasada 3 sn onizlenir (LED'ler yalnizca gercek uyarida degisir).
+    void AlertLightChanged()
+    {
+        _ctl.Apply(_s);
+        _save.Stop(); _save.Start();
+        _previewUntil = _clock.Elapsed.TotalSeconds + 3;
+        RenderLol();
+        UpdateAnimation();
+    }
+
+    void OnAlertHexKey(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter) CommitAlertHex();
+    }
+
+    void OnAlertHexCommit(object sender, KeyboardFocusChangedEventArgs e) => CommitAlertHex();
+
+    void CommitAlertHex()
+    {
+        string v = AlertHex.Text.Trim();
+        if (!v.StartsWith('#')) v = "#" + v;
+        if (LightState.Bright(v) is not null) SetAlertColor(v);
+        AlertHex.Text = _s.LolLight.Color;
     }
 
     void OnLolThreshold(object sender, RoutedPropertyChangedEventArgs<double> e)

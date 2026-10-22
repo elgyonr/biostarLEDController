@@ -214,6 +214,26 @@
             </DockPanel>
             <TextBlock Style="{StaticResource Small}" Margin="0,6,0,0" TextWrapping="Wrap"
                        Text="Can toparlanınca ışıklar eski haline döner."/>
+            <!-- Uyari isigi: efekt ve renk kullanicinin. Degisince kasada 3 sn onizlenir. -->
+            <StackPanel x:Name="LolLightBlock" Margin="0,14,0,0">
+              <TextBlock FontWeight="SemiBold" Text="Uyarı ışığı" Margin="0,0,0,8"/>
+              <UniformGrid x:Name="AlertEffects" Columns="3" Margin="0,0,-8,0"/>
+              <WrapPanel x:Name="AlertSwatches" Margin="0,4,0,0"/>
+              <Popup x:Name="AlertPickerPopup" StaysOpen="False" Placement="Bottom" AllowsTransparency="True" PopupAnimation="Fade" VerticalOffset="6">
+                <Border Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="12"
+                        Padding="16" Width="300" Margin="0,0,16,16">
+                  <Border.Effect><DropShadowEffect BlurRadius="18" ShadowDepth="4" Opacity="0.14"/></Border.Effect>
+                  <StackPanel>
+                    <local:ColorPicker x:Name="AlertPicker"/>
+                    <DockPanel Margin="0,16,0,0">
+                      <Border x:Name="AlertDot" DockPanel.Dock="Left" Width="36" Height="36" CornerRadius="6" BorderBrush="#33808080" BorderThickness="1"/>
+                      <TextBox x:Name="AlertHex" Margin="10,0,0,0" VerticalContentAlignment="Center" LostKeyboardFocus="OnAlertHexCommit" KeyDown="OnAlertHexKey"
+                               AutomationProperties.Name="Uyarı rengi hex kodu"/>
+                    </DockPanel>
+                  </StackPanel>
+                </Border>
+              </Popup>
+            </StackPanel>
             <DockPanel x:Name="LolThresholdRow" Margin="0,12,0,0">
               <TextBlock x:Name="LolThresholdValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"
                          Width="44" TextAlignment="Right" VerticalAlignment="Center"/>

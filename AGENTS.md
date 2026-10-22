@@ -118,7 +118,8 @@ led projesi/
 
 **LoL uyarısı:**
 - Koşul: `AlertActive = Sync && LolAlert && 0 < can% < eşik`. Eşik %10–60 arasında ayarlanır.
-- Uyarı her şeyin üstüne 0,6 s periyotlu kırmızı yanıp sönme bindirir. Bitince normal ayara döner.
+- Uyarı her şeyin üstüne `LightState.LolLight` ışığını bindirir. Kullanıcı Oyun sekmesinden efekti (Yanıp sönme / Nefes / Sabit) ve rengi seçer. Varsayılan kırmızı yanıp sönme (hız 7 ≈ 0,63 s). Parlaklık hep %100. Uyarı Nefes'i tek renkli nabızdır (`Color2 = Color`). Uyarı bitince ışık normal ayara döner.
+- Genel kural: `Color2 == Color` olan her Nefes klasik tek renkli nabız olarak çalışır.
 
 **Tema:**
 - Uygulama varsayılan olarak Windows temasını izler.

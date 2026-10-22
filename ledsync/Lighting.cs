@@ -55,6 +55,11 @@ sealed class LightState
     // "System" (Windows uygulama temasi), "Light" ya da "Dark".
     public string Theme { get; set; } = "System";
     public int LolThreshold { get; set; } = 30;
+    // Dusuk can isigi: kullanici rengi ve efekti secer (Yanip sonme, Nefes, Sabit). Varsayilan eski davranis:
+    // kirmizi, hizli yanip sonme. Parlaklik kullanilmaz; uyari hep tam parlak.
+    public DeviceLight LolLight { get; set; } = DefaultLolLight();
+    public static readonly LightEffect[] LolEffects = [LightEffect.Blink, LightEffect.Breath, LightEffect.Static];
+    static DeviceLight DefaultLolLight() => new() { Color = "#FF0000", Color2 = "#FF0000", Brightness = 100, Effect = LightEffect.Blink, Speed = 7 };
 
     public bool IsEnabled(string id) => Enabled.GetValueOrDefault(id, true);
 
@@ -72,7 +77,7 @@ sealed class LightState
 
     public LightState Clone() => new()
     {
-        On = On, Sync = Sync, Shared = Shared.Clone(), LolAlert = LolAlert, LolThreshold = LolThreshold, Theme = Theme,
+        On = On, Sync = Sync, Shared = Shared.Clone(), LolAlert = LolAlert, LolThreshold = LolThreshold, Theme = Theme, LolLight = LolLight.Clone(),
         Devices = Devices.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()), Enabled = new(Enabled),
     };
 
@@ -86,6 +91,8 @@ sealed class LightState
                 && s.Shared.Valid() && s.Devices.Values.All(d => d is not null && d.Valid()))
             {
                 s.LolThreshold = Math.Clamp(s.LolThreshold, 10, 60);
+                // Eski kayitta uyari isigi yok ya da izin verilmeyen bir efekt: varsayilan kirmizi yanip sonme.
+                if (s.LolLight is null || !s.LolLight.Valid() || !LolEffects.Contains(s.LolLight.Effect)) s.LolLight = DefaultLolLight();
                 // Cihaz acma/kapama arayuzden kalkti; eski surumde kapatilmis bir cihaz gorunmeden kapali kalmasin.
                 s.Enabled = new LightState().Enabled;
                 // Donanim efektleri yalnizca on fanlarda var; baska cihaza yazilmissa sabite don.
@@ -184,27 +191,29 @@ static class Effects
         return k * k;
     }
 
-    // Oyun uyarisi her seyin ustune biner: tam parlak kirmizi, saniyede yaklasik iki kez.
-    const double AlertPeriod = 0.6;
-
     // still: efekti yok say, sabit rengi ver (cikista son kare icin). alert: oyun uyarisi katmani.
     // Donanim efektinde donanima sabit renk gider (efekti denetleyici yapar); onizleme ise taklidini cizer.
     public static Light At(LightState s, string device, double t, bool still = false, bool alert = false, bool preview = false)
     {
-        if (alert && s.On) return new(255, 0, 0, Frac(t / AlertPeriod) < 0.5 ? 1 : 0);
+        // Oyun uyarisi her seyin ustune biner; rengi ve efekti kullanici secer, parlaklik hep tam.
+        if (alert && s.On) return Shade(s.LolLight, device, t, 1.0, s.LolLight.Effect, false);
         var d = s.For(device);
-        var (r, g, b) = d.Rgb;
         var effect = still ? LightEffect.Static : d.Effect;
         bool hwPreview = IsHardware(effect) && preview;
         if (IsHardware(effect)) effect = preview ? PreviewOf(effect) : LightEffect.Static;
-        double level = s.On ? d.Brightness / 100.0 : 0;
+        return Shade(d, device, t, s.On ? d.Brightness / 100.0 : 0, effect, hwPreview);
+    }
+
+    static Light Shade(DeviceLight d, string device, double t, double level, LightEffect effect, bool hwPreview)
+    {
+        var (r, g, b) = d.Rgb;
         if (effect == LightEffect.Static || level == 0) return new(r, g, b, level);
         double phase = Frac(t / Period(effect, d.Speed));
         switch (effect)
         {
             case LightEffect.Breath:
-                // Donanim efektlerinin onizlemesi tek renkli nabiz kalir (denetleyici tek renk biliyor).
-                if (hwPreview) return new(r, g, b, level * Pulse(phase));
+                // Tek renk (donanim onizlemesi ya da iki renk ayni): kararip aydinlanan klasik nabiz.
+                if (hwPreview || d.Color2 == d.Color) return new(r, g, b, level * Pulse(phase));
                 // Renk 1 -> Renk 2 -> Renk 1; isik sonmez, yalnizca renk kayar.
                 var (mr, mg, mb) = Mix(d.Rgb, d.Rgb2, 0.5 - 0.5 * Math.Cos(2 * Math.PI * phase));
                 return new(mr, mg, mb, level);
