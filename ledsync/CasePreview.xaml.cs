@@ -70,16 +70,16 @@ public partial class CasePreview : UserControl
     }
 
     // t: saniye; efektler donanimdakiyle ayni hesapla cizilir.
-    internal void Show(LightState s, double t, bool alert = false)
+    internal void Show(LightState s, double t, DeviceLight? overlay = null)
     {
-        Set("Io", s, LightController.Fans, t, alert);
-        Set("H1", s, LightController.Cpu, t, alert);
-        Set("Gpu", s, LightController.Gpu, t, alert);
+        Set("Io", s, LightController.Fans, t, overlay);
+        Set("H1", s, LightController.Cpu, t, overlay);
+        Set("Gpu", s, LightController.Gpu, t, overlay);
     }
 
-    void Set(string key, LightState s, string device, double t, bool alert)
+    void Set(string key, LightState s, string device, double t, DeviceLight? overlay)
     {
-        var l = Effects.At(s, device, t, alert: alert, preview: true);
+        var l = Effects.At(s, device, t, overlay: overlay, preview: true);
         var color = Color.FromRgb(l.R, l.G, l.B);
         // Seviye dogrusal isik; ekranda opaklik algisi icin gamma ile acilir (yoksa nefesin karanlik ucu kaybolur).
         double op = Math.Pow(l.Level, 1 / 2.2);

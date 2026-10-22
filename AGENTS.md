@@ -71,7 +71,7 @@ led projesi/
 | `MainWindow.xaml(.cs)` | Tek pencere, 1000×700, boyutlandırılamaz, kendi başlık çubuğu. Ayrıntılar aşağıda. |
 | `CasePreview.xaml(.cs)` | Eğik izdüşümlü vektör kasa. `Tag`'li parçalar (`fans`/`cpu`/`gpu`), `PartClicked` olayı, `Select()`, `Show(s, t, alert)`. |
 | `ColorPicker.xaml(.cs)` | Ton (yatay) × doygunluk (dikey) alanı. Parlaklık yok, renk hep tam parlak. |
-| `GameAlerts.cs` | `GameIcons.League()`: simge LeagueClient.exe'den alınır. `LolMonitor`: `https://127.0.0.1:2999/liveclientdata/activeplayer` adresini oyundayken 250 ms, oyun dışında 3 s aralıkla sorgular. Sertifika yalnızca 127.0.0.1:2999 için kabul edilir. |
+| `GameAlerts.cs` | `GameIcons.League()`: simge LeagueClient.exe'den alınır. `LolMonitor`: `https://127.0.0.1:2999/liveclientdata/allgamedata` adresini oyundayken 250 ms, oyun dışında 3 s aralıkla sorgular. Can, ölü olma, öldürme sayısı (artış = olay) ve `GameEnd` sonucunu çıkarır. İlk okumada taban alınır; eski olaylar tetiklenmez. Sertifika yalnızca 127.0.0.1:2999 için kabul edilir. |
 | `AudioMeter.cs` | COM `IAudioMeterInformation` ile tepe ses seviyesi. Kendi MTA thread'inde çalışır, 3 s okunmazsa kendini durdurur. |
 | `Theme.cs` | Açık/koyu token tablosu ve vurgu rengi geçersiz kılma. `Apply("System"/"Light"/"Dark")`. |
 | `App.xaml(.cs)` | Stiller, tek kopya mutex'i (`Local\LedSync.App`), tepsi simgesi (NotifyIcon), snapshot modu, beklenmeyen hata kaydı. |
@@ -116,9 +116,13 @@ led projesi/
 - Hata ancak 3 ardışık başarısızlıktan sonra durum olarak bildirilir. Her başarısızlık log'a yazılır.
 - Bilinen durum: `NVAPI_NOT_SUPPORTED (-104)` ara sıra gelir ve tekrar denemede düzelir.
 
-**LoL uyarısı:**
-- Koşul: `AlertActive = Sync && LolAlert && 0 < can% < eşik`. Eşik %10–60 arasında ayarlanır.
-- Uyarı her şeyin üstüne `LightState.LolLight` ışığını bindirir. Kullanıcı Oyun sekmesinden efekti (Yanıp sönme / Nefes / Sabit) ve rengi seçer. Varsayılan kırmızı yanıp sönme (hız 7 ≈ 0,63 s). Parlaklık hep %100. Uyarı Nefes'i tek renkli nabızdır (`Color2 = Color`). Uyarı bitince ışık normal ayara döner.
+**LoL ışık kuralları:**
+- Beş kural var: düşük can, ölünce, öldürünce, kazanınca, kaybedince. Hepsi `LightState.LolRules`'ta (`GameRule { On, Light }`). `LolAlert` hepsinin ana anahtarı.
+- Kurallar yalnızca `Sync && LolAlert` iken çalışır; TFT modunda devre dışıdır.
+- Öncelik (`MainWindow.GameLight()`): olay (öldürme 2 s, maç sonucu 8 s) > ölü > düşük can (`0 < can% < eşik`, eşik %10–60).
+- Seçilen kuralın ışığı `LightController.SetOverlay` ile her şeyin üstüne biner; kural bitince ışık normal ayara döner. Parlaklık kuralın kendi değeri (ölünce %40, diğerleri %100).
+- Kullanıcı Oyun sekmesinde her kuralı açıp kapatır; satıra tıklayınca o kuralın efektini (Yanıp sönme / Nefes / Sabit) ve rengini düzenler. Kural Nefes'i tek renkli nabızdır (`Color2 = Color`).
+- Eski `LolLight` ayarı yüklemede düşük can kuralına taşınır.
 - Genel kural: `Color2 == Color` olan her Nefes klasik tek renkli nabız olarak çalışır.
 
 **Tema:**
@@ -160,7 +164,7 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 - **Statik renkler:** üç cihazda doğru. Kırmızı net.
 - **Yazılım efektleri:** akıcı çalışıyor.
 - **Donanım efektleri:** Meteor kodu kullanıcı tarafından doğrulandı.
-- **LoL uyarısı:** sahte sunucuyla test edildi. Kırmızı yanıp sönüyor ve bittiğinde normal ayara dönüyor.
+- **LoL kuralları:** sahte `allgamedata` sunucusuyla, donanımsız test kopyasında denendi. Öldürme (2 s), düşük can, ölü, kazanma (8 s) ve TFT'de devre dışı kalma doğru sırayla çalıştı. Gerçek maçta henüz denenmedi.
 - **GPU yazma sınırlaması:** 30 s Renk döngüsü testinde hata yok.
 - **RLEDC.exe:** 22 Ekim 2026'da kuruldu ve açıldı.
 - **Henüz elle doğrulanmayanlar:**
@@ -217,6 +221,10 @@ Kaynak: Codex'in altı ekran görüntüsüne dayalı incelemesi, [Arayüz değer
     - Ekran okuyucu ve %125–%150 DPI denenmedi.
 
 Ayrıca: Parlaklık kaydırıcısının alt sınırı %1 oldu. Kayıtlı %0 değerler açılışta %80'e döner, çünkü %0 parlaklık "açık görünüp yanmayan parça" demekti; tamamen kapatmak güç düğmesinin işi.
+
+**Efekt akıcılığı — inceleme (22 Ekim 2026)**
+
+23. **Hareketli efektlerde CPU/GPU titremesi** — **henüz düzeltilmedi.** Kullanıcı CPU'da daha belirgin titreme bildirdi. Kodda: anakart rengi değişince sabit kanallar dahil üç kanal yeniden yazılıyor; 33 ms motor döngüsü + 50 ms GPU sınırı ideal örnekte GPU'yu 66 ms aralığa düşürüyor; iki renkli Nefes hesabı doğrusal → sRGB baytı → doğrusal baytı ile gereksiz yuvarlanıyor. Bunlar fiziksel kök nedenin kesin kanıtı değil. Önce gönderim süreleri ölçülmeli; sonra değişmeyen kanal yazmaları azaltılmalı, doğrusal hassasiyet sona kadar korunmalı ve GPU kendi 50 ms hedefine göre zamanlanmalı. Bilinen register/mod sınırları korunmalı, FPS körlemesine artırılmamalı. Ayrıntı ve sayısal hesap: [Renk geçişleri incelemesi](arastirma/RENK_GECISLERI_INCELEMESI_2026-10-22.md) (yerel, Git dışında). Fiziksel sonuç kullanıcıyla doğrulanmalı.
 
 ## 9. Yeni bir ajan nereden başlamalı?
 

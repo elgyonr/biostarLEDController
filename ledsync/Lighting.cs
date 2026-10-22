@@ -41,6 +41,14 @@ sealed class DeviceLight
     }
 }
 
+// Oyun olayina bagli isik kurali.
+sealed class GameRule
+{
+    public bool On { get; set; } = true;
+    public DeviceLight Light { get; set; } = new();
+    public GameRule Clone() => new() { On = On, Light = Light.Clone() };
+}
+
 // Kullanicinin istedigi isik. Kaydedilir; acilista geri yuklenir.
 sealed class LightState
 {
@@ -55,11 +63,28 @@ sealed class LightState
     // "System" (Windows uygulama temasi), "Light" ya da "Dark".
     public string Theme { get; set; } = "System";
     public int LolThreshold { get; set; } = 30;
-    // Dusuk can isigi: kullanici rengi ve efekti secer (Yanip sonme, Nefes, Sabit). Varsayilan eski davranis:
-    // kirmizi, hizli yanip sonme. Parlaklik kullanilmaz; uyari hep tam parlak.
-    public DeviceLight LolLight { get; set; } = DefaultLolLight();
+    // LoL isik kurallari: her biri acik/kapali ve kendi isigi (renk, efekt). LolAlert hepsinin ana anahtari.
+    // Durum kurallari (dusuk can, olu) surdukce yanar; olay kurallari (oldurme, sonuc) Seconds kadar yanip biter.
+    public Dictionary<string, GameRule> LolRules { get; set; } = DefaultLolRules();
     public static readonly LightEffect[] LolEffects = [LightEffect.Blink, LightEffect.Breath, LightEffect.Static];
-    static DeviceLight DefaultLolLight() => new() { Color = "#FF0000", Color2 = "#FF0000", Brightness = 100, Effect = LightEffect.Blink, Speed = 7 };
+    public static readonly (string id, string name, double seconds)[] LolRuleInfo =
+        [("lowhp", "Düşük can", 0), ("death", "Ölünce", 0), ("kill", "Öldürünce", 2), ("win", "Kazanınca", 8), ("lose", "Kaybedince", 8)];
+
+    static DeviceLight RuleLight(string color, LightEffect effect, int speed, int brightness = 100)
+        => new() { Color = color, Color2 = color, Brightness = brightness, Effect = effect, Speed = speed };
+
+    static Dictionary<string, GameRule> DefaultLolRules() => new()
+    {
+        ["lowhp"] = new() { Light = RuleLight("#FF0000", LightEffect.Blink, 7) },
+        ["death"] = new() { Light = RuleLight("#FFFFFF", LightEffect.Breath, 3, 40) },
+        ["kill"] = new() { Light = RuleLight("#FF9000", LightEffect.Blink, 9) },
+        ["win"] = new() { Light = RuleLight("#00FF00", LightEffect.Breath, 7) },
+        ["lose"] = new() { Light = RuleLight("#FF0000", LightEffect.Static, 5) },
+    };
+
+    // Eski surum: tek dusuk can isigi. Yalnizca okunur (LolRules["lowhp"]'a tasinir), yazilmaz.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public DeviceLight? LolLight { get; set; }
 
     public bool IsEnabled(string id) => Enabled.GetValueOrDefault(id, true);
 
@@ -77,7 +102,8 @@ sealed class LightState
 
     public LightState Clone() => new()
     {
-        On = On, Sync = Sync, Shared = Shared.Clone(), LolAlert = LolAlert, LolThreshold = LolThreshold, Theme = Theme, LolLight = LolLight.Clone(),
+        On = On, Sync = Sync, Shared = Shared.Clone(), LolAlert = LolAlert, LolThreshold = LolThreshold, Theme = Theme,
+        LolRules = LolRules.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
         Devices = Devices.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()), Enabled = new(Enabled),
     };
 
@@ -91,8 +117,13 @@ sealed class LightState
                 && s.Shared.Valid() && s.Devices.Values.All(d => d is not null && d.Valid()))
             {
                 s.LolThreshold = Math.Clamp(s.LolThreshold, 10, 60);
-                // Eski kayitta uyari isigi yok ya da izin verilmeyen bir efekt: varsayilan kirmizi yanip sonme.
-                if (s.LolLight is null || !s.LolLight.Valid() || !LolEffects.Contains(s.LolLight.Effect)) s.LolLight = DefaultLolLight();
+                // Kurallar: eksik ya da bozuk olan varsayilana doner; eski tek uyari isigi dusuk can kuralina tasinir.
+                var rules = DefaultLolRules();
+                if (s.LolLight is { } old && old.Valid() && LolEffects.Contains(old.Effect)) rules["lowhp"].Light = old;
+                foreach (var (id, _, _) in LolRuleInfo)
+                    if (s.LolRules?.GetValueOrDefault(id) is { Light: { } l } r && l.Valid() && LolEffects.Contains(l.Effect)) rules[id] = r;
+                s.LolRules = rules;
+                s.LolLight = null;
                 // Cihaz acma/kapama arayuzden kalkti; eski surumde kapatilmis bir cihaz gorunmeden kapali kalmasin.
                 s.Enabled = new LightState().Enabled;
                 // Donanim efektleri yalnizca on fanlarda var; baska cihaza yazilmissa sabite don.
@@ -191,12 +222,12 @@ static class Effects
         return k * k;
     }
 
-    // still: efekti yok say, sabit rengi ver (cikista son kare icin). alert: oyun uyarisi katmani.
+    // still: efekti yok say, sabit rengi ver (cikista son kare icin). overlay: oyun kurali isigi, her seyin ustune biner.
     // Donanim efektinde donanima sabit renk gider (efekti denetleyici yapar); onizleme ise taklidini cizer.
-    public static Light At(LightState s, string device, double t, bool still = false, bool alert = false, bool preview = false)
+    public static Light At(LightState s, string device, double t, bool still = false, DeviceLight? overlay = null, bool preview = false)
     {
-        // Oyun uyarisi her seyin ustune biner; rengi ve efekti kullanici secer, parlaklik hep tam.
-        if (alert && s.On) return Shade(s.LolLight, device, t, 1.0, s.LolLight.Effect, false);
+        // Oyun kurali isigi her seyin ustune biner; rengi, efekti ve parlakligi kuralin kendisi.
+        if (overlay is not null && s.On) return Shade(overlay, device, t, overlay.Brightness / 100.0, overlay.Effect, false);
         var d = s.For(device);
         var effect = still ? LightEffect.Static : d.Effect;
         bool hwPreview = IsHardware(effect) && preview;
@@ -277,7 +308,8 @@ sealed class LightController : IDisposable
     readonly Dictionary<string, DeviceStatus> _reported = [];
     LightState _state = new();
     int _version;
-    bool _stop, _alert;
+    bool _stop;
+    DeviceLight? _overlay;
     Thread? _thread;
 
     public event Action<string, DeviceStatus>? StatusChanged;
@@ -302,19 +334,22 @@ sealed class LightController : IDisposable
         _wake.Set();
     }
 
-    // Oyun uyarisi acilip kapaninca; ayarlari degistirmez, yalnizca kareleri ezer.
-    public void SetAlert(bool on)
+    // Oyun kurali isigi baslayip bitince (null); ayarlari degistirmez, yalnizca kareleri ezer.
+    public void SetOverlay(DeviceLight? light)
     {
         if (NoHardware) return;
         lock (_gate)
         {
-            if (_stop || _alert == on) return;
-            _alert = on;
+            if (_stop || Same(_overlay, light)) return;
+            _overlay = light?.Clone();
             _version++;
             _thread ??= StartThread();
         }
         _wake.Set();
     }
+
+    static bool Same(DeviceLight? a, DeviceLight? b) => a is null || b is null ? a == b
+        : a.Color == b.Color && a.Effect == b.Effect && a.Speed == b.Speed && a.Brightness == b.Brightness;
 
     Thread StartThread()
     {
@@ -331,13 +366,13 @@ sealed class LightController : IDisposable
         while (true)
         {
             int v;
-            bool alert;
+            DeviceLight? overlay;
             lock (_gate)
             {
-                s = _state; v = _version; alert = _alert;
+                s = _state; v = _version; overlay = _overlay;
                 if (_stop) break;
             }
-            if (!alert && !s.Moving(Devices))
+            if (overlay is null && !s.Moving(Devices))
             {
                 bool failed = false;
                 if (v != written) { failed = Frame(s, 0, still: true); written = v; }
@@ -347,30 +382,30 @@ sealed class LightController : IDisposable
                 continue;
             }
             long start = clock.ElapsedMilliseconds;
-            Frame(s, start / 1000.0, alert: alert);
+            Frame(s, start / 1000.0, overlay: overlay);
             written = v;
             int rest = FrameMs - (int)(clock.ElapsedMilliseconds - start);
             _wake.WaitOne(Math.Max(1, rest));
         }
         // Cikista efekt yarim bir karede (or. sonuk) donmasin: sabit renkte birak.
-        if (written >= 0 && (s.Moving(Devices) || _alert)) Frame(s, 0, still: true);
+        if (written >= 0 && (s.Moving(Devices) || _overlay is not null)) Frame(s, 0, still: true);
         _board.Dispose();
     }
 
     // Bir kare yazar; bir cihaza yazilamadiysa true doner.
-    bool Frame(LightState s, double t, bool still = false, bool alert = false)
+    bool Frame(LightState s, double t, bool still = false, DeviceLight? overlay = null)
     {
         var zones = new List<BoardZone>();
         foreach (var (id, zone) in new[] { (Fans, "io"), (Cpu, "h1") })
         {
             if (!s.IsEnabled(id)) { Report(id, new(DeviceHealth.Off, "Devre dışı")); continue; }
             // Anakartta parlaklik rengi olcekler.
-            var l = Effects.At(s, id, t, still, alert);
+            var l = Effects.At(s, id, t, still, overlay);
             byte Scale(byte c) => (byte)Math.Round(ToLinear(c) * l.Level);
             // Donanim efekti (yalnizca on fanlar, uyari yokken): mod kodu ve hiz denetleyiciye gider.
             var fx = s.For(id).Effect;
             // Cikista da korunur: denetleyici efekti kendi surdurur, donmus kare sorunu yok.
-            bool hw = !alert && Effects.IsHardware(fx);
+            bool hw = overlay is null && Effects.IsHardware(fx);
             zones.Add(new(id, zone, hw ? Effects.HardwareCode(fx) : null, hw ? Effects.HardwareSpeed(s.For(id).Speed) : null,
                 Scale(l.R), Scale(l.G), Scale(l.B)));
         }
@@ -379,7 +414,7 @@ sealed class LightController : IDisposable
         if (s.IsEnabled(Gpu))
         {
             // Ekran kartinda parlaklik donanimdan (brightnessPct) uygulanir.
-            var l = Effects.At(s, Gpu, t, still, alert);
+            var l = Effects.At(s, Gpu, t, still, overlay);
             Report(Gpu, _gpu.Write(ToLinear(l.R), ToLinear(l.G), ToLinear(l.B), (byte)Math.Round(l.Level * 100), force: still));
         }
         else Report(Gpu, new(DeviceHealth.Off, "Devre dışı"));
