@@ -357,7 +357,13 @@ public partial class MainWindow : Window
     // Tema dugmesi menu acar: Sistem (Windows'u izler), Acik, Koyu. Secim kaydedilir.
     void OnThemeClick(object sender, RoutedEventArgs e)
     {
-        var menu = new ContextMenu { PlacementTarget = ThemeButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom };
+        // Menu yazi tipini PlacementTarget'tan miras alir; dugme simge fontu (Segoe Fluent Icons) kullandigi icin
+        // metin kutucuk gorunurdu. Pencerenin yazi tipi acikca verilir.
+        var menu = new ContextMenu
+        {
+            PlacementTarget = ThemeButton, Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom,
+            FontFamily = FontFamily, FontSize = FontSize,
+        };
         foreach (var (mode, name, _) in ThemeModes)
         {
             var item = new MenuItem { Header = name, IsCheckable = true, IsChecked = _s.Theme == mode };
