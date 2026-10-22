@@ -23,7 +23,18 @@ static class GameIcons
                 foreach (var line in File.ReadLines(LolSettings))
                     if (line.TrimStart().StartsWith("product_install_full_path:"))
                         dir = line[(line.IndexOf(':') + 1)..].Trim().Trim('"');
-            string exe = Path.Combine(dir, "LeagueClient.exe");
+            return FromExe(Path.Combine(dir, "LeagueClient.exe"));
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return null; }
+    }
+
+    // CS2: Steam kutuphanesindeki cs2.exe.
+    public static ImageSource? Cs2() => Cs2Setup.GameDir() is { } dir ? FromExe(Path.Combine(dir, "game", "bin", "win64", "cs2.exe")) : null;
+
+    static ImageSource? FromExe(string exe)
+    {
+        try
+        {
             if (!File.Exists(exe)) return null;
             using var icon = System.Drawing.Icon.ExtractAssociatedIcon(exe);
             if (icon is null) return null;
@@ -35,13 +46,18 @@ static class GameIcons
     }
 }
 
-// LoL mac durumu: senin sampiyonunun can orani (0-1) ve olu olup olmadigi.
-readonly record struct LolState(double Hp, bool Dead);
+// Oyun izleyicisi: durum (can, olu, bayraklar) degisince ve bir kez olan olaylarda ("kill", "win", "lose") haber verir.
+interface IGameMonitor : IDisposable
+{
+    // null: oyunda degil.
+    event Action<GameState?>? StateChanged;
+    event Action<string>? Fired;
+}
 
 // League of Legends: Riot'un oyun sirasinda actigi resmi yerel API (Live Client Data, 127.0.0.1:2999).
 // Yalnizca okunur; oyunun surecine, bellegine ya da dosyalarina dokunulmaz. Oyun disinda baglanti reddedilir.
 // Tek istek (allgamedata) can, olum, oldurme sayisi ve olay listesini birlikte verir.
-sealed class LolMonitor : IDisposable
+sealed class LolMonitor : IGameMonitor
 {
     const string Url = "https://127.0.0.1:2999/liveclientdata/allgamedata";
     readonly HttpClient _http;
@@ -51,7 +67,7 @@ sealed class LolMonitor : IDisposable
     bool _baseline;
 
     // null: oyunda degil (ya da izleyici/yukleme ekrani/TFT).
-    public event Action<LolState?>? StateChanged;
+    public event Action<GameState?>? StateChanged;
     // Bir kez olan olaylar: "kill", "win", "lose".
     public event Action<string>? Fired;
 
@@ -68,11 +84,11 @@ sealed class LolMonitor : IDisposable
 
     async Task Run()
     {
-        LolState? last = null;
+        GameState? last = null;
         bool first = true;
         while (!_cts.IsCancellationRequested)
         {
-            LolState? st = await Read();
+            GameState? st = await Read();
             if (first || st != last) { first = false; last = st; StateChanged?.Invoke(st); }
             // Oyundayken saniyede 4 kez; oyun disinda 3 saniyede bir yoklar.
             try { await Task.Delay(st is null ? 3000 : 250, _cts.Token); }
@@ -85,7 +101,7 @@ sealed class LolMonitor : IDisposable
         => p.TryGetProperty("riotId", out var r) && r.GetString() is { Length: > 0 } id ? id
          : p.TryGetProperty("summonerName", out var n) ? n.GetString() : null;
 
-    async Task<LolState?> Read()
+    async Task<GameState?> Read()
     {
         try
         {
@@ -132,7 +148,7 @@ sealed class LolMonitor : IDisposable
                 _lastEvent = newest;
                 _baseline = true;
             }
-            return new LolState(Math.Clamp(cur / max, 0, 1), dead);
+            return new GameState(Math.Clamp(cur / max, 0, 1), dead);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or KeyNotFoundException or InvalidOperationException)
         {

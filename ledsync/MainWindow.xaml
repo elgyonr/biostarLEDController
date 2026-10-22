@@ -57,7 +57,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Button">
-            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Padding="10,0" Height="36">
+            <Border x:Name="Bg" Background="Transparent" CornerRadius="8" Padding="10,0" Height="32">
               <ContentPresenter VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
@@ -207,34 +207,35 @@
 
       <!-- Oyun sekmesi -->
       <StackPanel x:Name="GamePanel" Grid.Column="2" Visibility="Collapsed">
-        <TextBlock FontSize="16" FontWeight="SemiBold" Text="Oyun özellikleri"/>
-        <TextBlock Style="{StaticResource Desc}" Text="Oyun olaylarında ışıklar üç parçada birlikte tepki verir."/>
+        <!-- Oyun secimi: kart ve kurallar secili oyunu gosterir. Her oyunun kendi ana anahtari ve kurallari var.
+             Baslik yok (sekme zaten "Oyun"); yedi kural ve acik duzenleyici guc dugmesinin ustune tasmasin. -->
+        <UniformGrid x:Name="GameChoices" Columns="2" Margin="0,0,-8,0"/>
         <Border x:Name="GameSyncNote" Background="{DynamicResource WarnBg}" BorderBrush="{DynamicResource WarnLine}" BorderThickness="1"
-                CornerRadius="8" Padding="12,8" Margin="0,16,0,0">
+                CornerRadius="8" Padding="12,8" Margin="0,8,0,0">
           <DockPanel>
             <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Content="Sync'i aç" Height="30" Click="OnEnableSync"/>
             <TextBlock Foreground="{DynamicResource WarnInk}" TextWrapping="Wrap" VerticalAlignment="Center"
                        Text="Sync kapalı; oyun özellikleri çalışmaz."/>
           </DockPanel>
         </Border>
-        <Border Style="{StaticResource Panel}" Margin="0,16,0,0">
+        <Border Style="{StaticResource Panel}" Margin="0,8,0,0">
           <StackPanel>
             <DockPanel>
-              <CheckBox x:Name="LolToggle" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="OnLolToggle"
-                        AutomationProperties.Name="League of Legends can uyarısı"/>
+              <CheckBox x:Name="GameToggle" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="OnGameToggle"
+                        AutomationProperties.Name="Oyun ışık kuralları"/>
               <Border Width="44" Height="44" CornerRadius="10" Background="{DynamicResource Stage}" ClipToBounds="True">
                 <Grid>
-                  <TextBlock x:Name="LolIconFallback" Text="LoL" Foreground="#C8AA6E" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                  <Image x:Name="LolIcon" Width="36" Height="36" RenderOptions.BitmapScalingMode="HighQuality"/>
+                  <TextBlock x:Name="GameIconFallback" Foreground="#C8AA6E" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  <Image x:Name="GameIcon" Width="36" Height="36" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Grid>
               </Border>
               <StackPanel Margin="12,0,0,0" VerticalAlignment="Center">
-                <TextBlock FontWeight="SemiBold" Text="League of Legends"/>
-                <TextBlock x:Name="LolStatus" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,2,0,0"/>
+                <TextBlock x:Name="GameName" FontWeight="SemiBold"/>
+                <TextBlock x:Name="GameStatus" Style="{StaticResource Small}" TextWrapping="Wrap" Margin="0,2,0,0"/>
               </StackPanel>
             </DockPanel>
-            <!-- Kurallar: her satir ac/kapa ve ozet; tiklanan satirin isigi asagida duzenlenir. -->
-            <StackPanel x:Name="LolRulesBlock" Margin="-10,12,-10,0">
+            <!-- Kurallar: her satir ac/kapa ve ozet; tiklanan satirin isigi asagida acilip duzenlenir (tekrar tiklayinca kapanir). -->
+            <StackPanel x:Name="RulesBlock" Margin="-10,10,-10,0">
               <StackPanel x:Name="RuleRows"/>
               <!-- Duzenleyici Sync kapaliyken gizli: kurallar zaten calismaz ve uyari bandiyla kart guc dugmesine tasardi. -->
               <StackPanel x:Name="RuleEditor" Margin="10,12,10,0">
@@ -260,12 +261,12 @@
                   </Border>
                 </Popup>
                 <!-- Esik yalnizca dusuk can kurali duzenlenirken. -->
-                <DockPanel x:Name="LolThresholdRow" Margin="0,4,0,0">
-                  <TextBlock x:Name="LolThresholdValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"
+                <DockPanel x:Name="ThresholdRow" Margin="0,4,0,0">
+                  <TextBlock x:Name="ThresholdValue" DockPanel.Dock="Right" Foreground="{DynamicResource Muted}" Typography.NumeralAlignment="Tabular"
                              Width="44" TextAlignment="Right" VerticalAlignment="Center"/>
                   <TextBlock DockPanel.Dock="Left" Text="Can eşiği" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,12,0"/>
-                  <Slider x:Name="LolThreshold" Minimum="10" Maximum="60" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5"
-                          VerticalAlignment="Center" ValueChanged="OnLolThreshold" AutomationProperties.Name="Can eşiği"/>
+                  <Slider x:Name="ThresholdSlider" Minimum="10" Maximum="60" SmallChange="5" LargeChange="10" IsSnapToTickEnabled="True" TickFrequency="5"
+                          VerticalAlignment="Center" ValueChanged="OnThreshold" AutomationProperties.Name="Can eşiği"/>
                 </DockPanel>
                 <TextBlock x:Name="RuleNote" Style="{StaticResource Small}" Margin="0,6,0,0" TextWrapping="Wrap"/>
               </StackPanel>

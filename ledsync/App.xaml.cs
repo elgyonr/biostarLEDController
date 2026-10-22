@@ -32,6 +32,11 @@ public partial class App : Application
             int fx = Array.IndexOf(e.Args, "--effect");
             LightEffect? effect = fx >= 0 && fx + 1 < e.Args.Length && Enum.TryParse<LightEffect>(e.Args[fx + 1], out var parsed) ? parsed : null;
             w.ShowForSnapshot(e.Args.Contains("--game"), part >= 0 && part + 1 < e.Args.Length ? e.Args[part + 1] : null, effect);
+            // --game cs2: o oyunun karti; --rule lowhp: o kuralin duzenleyicisi acik.
+            int game = Array.IndexOf(e.Args, "--game");
+            if (game >= 0 && game + 1 < e.Args.Length && GameDefs.All.Any(g => g.Id == e.Args[game + 1])) w.SelectGame(e.Args[game + 1]);
+            int rule = Array.IndexOf(e.Args, "--rule");
+            if (rule >= 0 && rule + 1 < e.Args.Length) w.EditRule(e.Args[rule + 1]);
             // --theme Light|Dark: kayitli tema yerine bu tema (kaydedilmez).
             int theme = Array.IndexOf(e.Args, "--theme");
             if (theme >= 0 && theme + 1 < e.Args.Length) { Theme.Apply(e.Args[theme + 1]); w.RenderTheme(); }

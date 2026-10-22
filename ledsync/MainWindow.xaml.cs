@@ -40,27 +40,47 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _conflicts = new() { Interval = TimeSpan.FromSeconds(10) };
     List<string> _running = [];
     bool _loading;
-    LolMonitor? _lol;
-    LolState? _lolState; // null: oyunda degil
-    // Su an yanan olay kurali ("kill", "win", "lose") ve bitis zamani.
-    string? _event;
-    double _eventUntil;
-    readonly DispatcherTimer _eventTimer = new();
+    // Oyun basina izleyici, son durum ve su an yanan olay kurali ("kill", "win", "lose") ile bitis zamani.
+    sealed class GameRun
+    {
+        public IGameMonitor? Monitor;
+        public GameState? State; // null: oyunda degil
+        public string? Event;
+        public double EventUntil;
+        public readonly DispatcherTimer Timer = new();
+        public Cs2Setup.Result? Setup; // yalnizca cs2: cfg kurulumu sonucu
+    }
+    readonly Dictionary<string, GameRun> _games = GameDefs.All.ToDictionary(g => g.Id, _ => new GameRun());
+    // Oyun sekmesinde gosterilen oyun.
+    string _game = "lol";
+
+    GameSettings G(string id) => _s.Games[id];
 
     // Oyun kurallari yalnizca Sync acikken (uyari hicbir zaman tek bir parcada yanmasin).
-    bool GameOn => _s.Sync && _s.LolAlert;
+    bool GameOn(string id) => _s.Sync && G(id).On;
 
-    GameRule? Rule(string id) => _s.LolRules.TryGetValue(id, out var r) && r.On ? r : null;
+    GameRule? Rule(string game, string id) => G(game).Rules.TryGetValue(id, out var r) && r.On ? r : null;
 
-    // LED'lere binen oyun isigi. Oncelik: olay (oldurme, mac sonucu) > olu > dusuk can.
-    DeviceLight? GameLight()
+    // LED'lere binen oyun isigi. Oncelik: olay (oldurme, mac sonucu) > durum kurallari (GameDefs.StateOrder).
+    DeviceLight? GameLight() => GameDefs.All.Select(g => GameLight(g.Id)).FirstOrDefault(l => l is not null);
+
+    DeviceLight? GameLight(string game)
     {
-        if (!GameOn) return null;
-        if (_event is not null && _clock.Elapsed.TotalSeconds < _eventUntil && Rule(_event) is { } ev) return ev.Light;
-        if (_lolState is not { } st) return null;
-        if (st.Dead) return Rule("death")?.Light;
-        // Olu iken can 0; esik yalnizca yasarken.
-        if (st.Hp > 0 && st.Hp * 100 < _s.LolThreshold) return Rule("lowhp")?.Light;
+        if (!GameOn(game)) return null;
+        var run = _games[game];
+        if (run.Event is { } ev && _clock.Elapsed.TotalSeconds < run.EventUntil && Rule(game, ev) is { } er) return er.Light;
+        if (run.State is not { } st) return null;
+        foreach (var id in GameDefs.StateOrder)
+        {
+            bool active = id switch
+            {
+                "death" => st.Dead,
+                // Olu iken can 0; esik yalnizca yasarken.
+                "lowhp" => !st.Dead && st.Hp > 0 && st.Hp * 100 < G(game).Threshold,
+                _ => st.Has(id),
+            };
+            if (active && Rule(game, id) is { } r) return r.Light;
+        }
         return null;
     }
 
@@ -92,10 +112,9 @@ public partial class MainWindow : Window
         Picker.ColorChanged += SetColor;
         AddChoices(EffectChoices, Effects.All);
         AddChoices(HardwareChoices, Effects.Hardware.Select(h => (h.id, h.name, h.desc)));
-        BuildRuleControls();
-        _eventTimer.Tick += (_, _) => { _eventTimer.Stop(); _event = null; ApplyGame(); };
+        BuildGameControls();
+        foreach (var (_, run) in _games) run.Timer.Tick += (_, _) => { run.Timer.Stop(); run.Event = null; ApplyGame(); };
         Preview.PartClicked += OnPart;
-        if (GameIcons.League() is { } icon) { LolIcon.Source = icon; LolIconFallback.Visibility = Visibility.Collapsed; }
 
         _ctl.StatusChanged += (id, st) => Dispatcher.BeginInvoke(() => _status[id] = st);
         _save.Tick += (_, _) => { _save.Stop(); _s.Save(); };
@@ -105,7 +124,7 @@ public partial class MainWindow : Window
 
         Render();
         _ctl.Apply(_s);
-        UpdateLol();
+        UpdateGames();
         // Onizleme efekti ekran yenilemesiyle oynatir; pencere gizliyken durur.
         IsVisibleChanged += (_, _) => UpdateAnimation();
         UpdateAnimation();
@@ -156,7 +175,8 @@ public partial class MainWindow : Window
 
     void PreviewRule()
     {
-        _previewLight = _s.LolRules[_editRule].Light;
+        if (_editRule is null) return;
+        _previewLight = EditLight;
         _previewUntil = _clock.Elapsed.TotalSeconds + 3;
         UpdateAnimation();
     }
@@ -272,7 +292,7 @@ public partial class MainWindow : Window
         _loading = true;
         Bright.Value = t.Brightness;
         SpeedSlider.Value = t.Speed;
-        LolThreshold.Value = _s.LolThreshold;
+        ThresholdSlider.Value = G(_game).Threshold;
         _loading = false;
         BrightValue.Text = $"%{t.Brightness}";
         foreach (var (b, e) in _effectButtons)
@@ -287,7 +307,7 @@ public partial class MainWindow : Window
         SpeedRow.Visibility = t.Effect is LightEffect.Static or LightEffect.Music ? Visibility.Collapsed : Visibility.Visible;
         SpeedValue.Text = Effects.IsHardware(t.Effect) ? $"{t.Speed} / 10" : $"{t.Speed} / 10 · tur {Effects.Period(t.Effect, t.Speed):0.#} sn";
         PowerButton.Content = _s.On ? "Işıkları kapat" : "Işıkları aç";
-        RenderLol();
+        RenderGame();
         RenderNotice();
         RenderTheme();
     }
@@ -301,90 +321,135 @@ public partial class MainWindow : Window
             : $"{string.Join(", ", _running)} çalışıyor. Aynı ışıklara yazdığı için seçtiğin rengi geri değiştirebilir; kapatman önerilir.";
     }
 
-    void RenderLol()
+    void RenderGame()
     {
+        var def = GameDefs.Get(_game);
+        var g = G(_game);
+        var run = _games[_game];
+        foreach (var (b, id) in _gameChoices) b.Tag = id == _game ? "selected" : null;
         GameSyncNote.Visibility = _s.Sync ? Visibility.Collapsed : Visibility.Visible;
-        LolToggle.IsEnabled = _s.Sync;
-        LolToggle.IsChecked = _s.LolAlert;
-        LolRulesBlock.Visibility = _s.LolAlert ? Visibility.Visible : Visibility.Collapsed;
-        RuleEditor.Visibility = _s.Sync ? Visibility.Visible : Visibility.Collapsed;
+        GameName.Text = def.Name;
+        GameIcon.Source = _icons.GetValueOrDefault(_game);
+        GameIconFallback.Text = _game == "lol" ? "LoL" : "CS2";
+        GameIconFallback.Visibility = GameIcon.Source is null ? Visibility.Visible : Visibility.Collapsed;
+        GameToggle.IsEnabled = _s.Sync;
+        GameToggle.IsChecked = g.On;
+        RulesBlock.Visibility = g.On ? Visibility.Visible : Visibility.Collapsed;
+        // Satirlar oyunun kendi sirasinda (tanimdaki sira).
+        if (RuleRows.Children.Count != def.Rules.Length || RuleRows.Children[0] != _ruleRows[def.Rules[0].Id].Button)
+        {
+            RuleRows.Children.Clear();
+            foreach (var rd in def.Rules) RuleRows.Children.Add(_ruleRows[rd.Id].Button);
+        }
         foreach (var (id, row) in _ruleRows)
         {
-            var r = _s.LolRules[id];
+            var r = g.Rules.GetValueOrDefault(id);
+            row.Button.Visibility = r is null ? Visibility.Collapsed : Visibility.Visible;
+            if (r is null) continue;
             row.Button.Tag = id == _editRule ? "selected" : null;
+            row.Name.Text = def.Rules.First(x => x.Id == id).Name;
             row.Switch.IsChecked = r.On;
             row.Dot.Fill = Brush(r.Light.Color);
             row.Summary.Text = Summary(id);
             row.Summary.Opacity = r.On ? 1 : 0.5;
         }
-        var (_, name, seconds) = LightState.LolRuleInfo.First(x => x.id == _editRule);
-        var al = _s.LolRules[_editRule].Light;
-        RuleTitle.Text = $"{name} · ışık";
-        foreach (var (b, e) in _alertEffects) b.Tag = e == al.Effect ? "selected" : null;
-        foreach (var (b, hex) in _alertSwatchHex) b.Tag = hex == al.Color ? "selected" : null;
-        _alertCustom.Tag = _alertSwatchHex.ContainsValue(al.Color) ? null : "selected";
-        if (!AlertHex.IsKeyboardFocusWithin) AlertHex.Text = al.Color;
-        AlertDot.Background = Brush(al.Color);
-        AlertPicker.SetColor(al.Color);
-        LolThresholdRow.Visibility = _editRule == "lowhp" ? Visibility.Visible : Visibility.Collapsed;
-        LolThresholdValue.Text = $"%{_s.LolThreshold}";
-        RuleNote.Text = _editRule switch
+        // Duzenleyici: bir satir secildiyse ve Sync aciksa (kapaliyken kurallar zaten calismaz).
+        RuleEditor.Visibility = _s.Sync && _editRule is not null ? Visibility.Visible : Visibility.Collapsed;
+        if (_editRule is { } edit)
         {
-            "lowhp" => "Can eşiğin altına düşünce yanar; toparlanınca ışıklar eski haline döner.",
-            "death" => "Ölü kaldığın sürece yanar; yeniden doğunca biter.",
-            _ => $"Olay olunca {seconds:0} saniye yanar, sonra ışıklar eski haline döner.",
-        };
-        // Sync kapaliyken onkosulu ustteki bant anlatir; burada yalnizca tercihin kendisi.
-        string? lit = GameLight() is { } l ? LightState.LolRuleInfo.First(x => _s.LolRules[x.id].Light == l).name.ToLower(Tr) : null;
-        LolStatus.Text = !_s.LolAlert ? "Kapalı."
-            : !_s.Sync ? "Açık · Sync bekleniyor."
-            : _lolState is not { } st ? "Açık · maç bekleniyor."
-            : $"Oyunda · {(st.Dead ? "ölü" : $"can %{st.Hp * 100:0}")}{(lit is null ? "" : $" · {lit} ışığı yanıyor")}";
+            var rd = def.Rules.First(x => x.Id == edit);
+            var al = EditLight;
+            RuleTitle.Text = $"{rd.Name} · ışık";
+            foreach (var (b, e) in _alertEffects) b.Tag = e == al.Effect ? "selected" : null;
+            foreach (var (b, hex) in _alertSwatchHex) b.Tag = hex == al.Color ? "selected" : null;
+            _alertCustom.Tag = _alertSwatchHex.ContainsValue(al.Color) ? null : "selected";
+            if (!AlertHex.IsKeyboardFocusWithin) AlertHex.Text = al.Color;
+            AlertDot.Background = Brush(al.Color);
+            AlertPicker.SetColor(al.Color);
+            ThresholdRow.Visibility = edit == "lowhp" ? Visibility.Visible : Visibility.Collapsed;
+            ThresholdValue.Text = $"%{g.Threshold}";
+            RuleNote.Text = rd.Note;
+        }
+        GameStatus.Text = Status(_game);
+    }
+
+    // Sync kapaliyken onkosulu ustteki bant anlatir; burada yalnizca tercihin ve oyunun durumu.
+    string Status(string game)
+    {
+        var run = _games[game];
+        if (!G(game).On) return "Kapalı.";
+        if (!_s.Sync) return "Açık · Sync bekleniyor.";
+        if (game == "cs2")
+        {
+            if (run.Setup == Cs2Setup.Result.NotFound) return "CS2 bulunamadı (Steam kütüphanesinde yok).";
+            if (run.Setup == Cs2Setup.Result.Failed) return "CS2 ayar dosyası yazılamadı; ayrıntı hata kaydında.";
+            if (run.Monitor is Cs2Monitor { Listening: false }) return $"Port {Cs2Monitor.Port} kullanımda; ayrıntı hata kaydında.";
+            if (run.Setup == Cs2Setup.Result.Installed && run.Monitor is Cs2Monitor { Connected: false }) return "Kuruldu · CS2 açıksa yeniden başlat.";
+        }
+        if (run.State is not { } st) return "Açık · maç bekleniyor.";
+        var lit = GameLight(game);
+        string? name = lit is null ? null : GameDefs.Get(game).Rules.First(r => G(game).Rules[r.Id].Light == lit).Name.ToLower(Tr);
+        return $"Oyunda · {(st.Dead ? "ölü" : $"can %{st.Hp * 100:0}")}{(name is null ? "" : $" · {name} ışığı yanıyor")}";
     }
 
     string Summary(string id)
     {
-        var l = _s.LolRules[id].Light;
+        var l = G(_game).Rules[id].Light;
         string what = $"{ColorName(l.Color)} {AlertEffectName(l.Effect).ToLower(Tr)}";
-        return id == "lowhp" ? $"%{_s.LolThreshold} altı · {what}" : what;
+        return id == "lowhp" ? $"%{G(_game).Threshold} altı · {what}" : what;
     }
 
-    // Monitor yalnizca kurallar acik ve Sync acikken calisir; oyun disinda 3 saniyede bir yerel adresi yoklar.
-    void UpdateLol()
+    // Izleyiciler yalnizca oyun acik ve Sync acikken calisir. CS2'de cfg dosyasi oyun acilinca kurulur, kapatilinca kaldirilir.
+    void UpdateGames()
     {
-        if (GameOn && _lol is null)
+        foreach (var def in GameDefs.All)
         {
-            _lol = new LolMonitor();
-            _lol.StateChanged += st => Dispatcher.BeginInvoke(() => { _lolState = st; ApplyGame(); });
-            _lol.Fired += kind => Dispatcher.BeginInvoke(() => Fire(kind));
-        }
-        else if (!GameOn && _lol is not null)
-        {
-            _lol.Dispose();
-            _lol = null;
-            _lolState = null;
-            _event = null;
+            var run = _games[def.Id];
+            bool want = GameOn(def.Id);
+            if (want && run.Monitor is null)
+            {
+                if (def.Id == "cs2")
+                {
+                    run.Setup = LightController.NoHardware ? null : Cs2Setup.Install(G("cs2").Token!);
+                    // Anahtar ilk acilista uretilir; kaydedilmezse her acilista degisir ve cfg yeniden yazilirdi.
+                    if (run.Setup == Cs2Setup.Result.Installed) _s.Save();
+                }
+                run.Monitor = def.Id == "cs2" ? new Cs2Monitor(G("cs2").Token!) : new LolMonitor();
+                string id = def.Id;
+                run.Monitor.StateChanged += st => Dispatcher.BeginInvoke(() => { _games[id].State = st; ApplyGame(); });
+                run.Monitor.Fired += kind => Dispatcher.BeginInvoke(() => Fire(id, kind));
+            }
+            else if (!want && run.Monitor is not null)
+            {
+                run.Monitor.Dispose();
+                run.Monitor = null;
+                run.State = null;
+                run.Event = null;
+            }
+            // Kullanici CS2 kurallarini kapattiysa (Sync'ten bagimsiz) oyun bos yere istek gondermesin.
+            if (def.Id == "cs2" && !G("cs2").On && !LightController.NoHardware) { Cs2Setup.Remove(); run.Setup = null; }
         }
         ApplyGame();
     }
 
     // Olay kurali: suresi kadar yanar. Yeni olay eskisini ezer (or. oldurmenin ustune mac sonu).
-    void Fire(string kind)
+    void Fire(string game, string kind)
     {
-        var info = LightState.LolRuleInfo.FirstOrDefault(x => x.id == kind);
-        if (!GameOn || info.id is null || Rule(kind) is null) return;
-        _event = kind;
-        _eventUntil = _clock.Elapsed.TotalSeconds + info.seconds;
-        _eventTimer.Stop();
-        _eventTimer.Interval = TimeSpan.FromSeconds(info.seconds);
-        _eventTimer.Start();
+        var rd = GameDefs.Get(game).Rules.FirstOrDefault(x => x.Id == kind);
+        if (!GameOn(game) || rd.Id is null || rd.Seconds <= 0 || Rule(game, kind) is null) return;
+        var run = _games[game];
+        run.Event = kind;
+        run.EventUntil = _clock.Elapsed.TotalSeconds + rd.Seconds;
+        run.Timer.Stop();
+        run.Timer.Interval = TimeSpan.FromSeconds(rd.Seconds);
+        run.Timer.Start();
         ApplyGame();
     }
 
     void ApplyGame()
     {
         _ctl.SetOverlay(GameLight());
-        RenderLol();
+        RenderGame();
         UpdateAnimation();
         if (!_rendering) Preview.Show(_s, _clock.Elapsed.TotalSeconds, ScreenLight);
     }
@@ -399,26 +464,29 @@ public partial class MainWindow : Window
         // Muzik Sync'te yok; eski bir ortak ayarda kalmissa sabite doner.
         if (sync && _s.Shared.Effect == LightEffect.Music) _s.Shared.Effect = LightEffect.Static;
         Changed();
-        UpdateLol();
+        UpdateGames();
     }
 
     void OnLightTab(object sender, RoutedEventArgs e) { _gameTab = false; Render(); }
     void OnGameTab(object sender, RoutedEventArgs e) { _gameTab = true; Render(); }
 
-    void OnLolToggle(object sender, RoutedEventArgs e)
+    void OnGameToggle(object sender, RoutedEventArgs e)
     {
-        _s.LolAlert = LolToggle.IsChecked == true;
-        UpdateLol();
+        G(_game).On = GameToggle.IsChecked == true;
+        UpdateGames();
         _save.Stop(); _save.Start();
     }
 
-    // --- LoL kurallari (Oyun sekmesi): satirlar + secili kuralin efekti ve rengi ---
+    // --- Oyun kurallari (Oyun sekmesi): oyun secimi, kural satirlari, secili kuralin efekti ve rengi ---
     static readonly System.Globalization.CultureInfo Tr = new("tr-TR");
+    readonly Dictionary<Button, string> _gameChoices = [];
+    readonly Dictionary<string, ImageSource?> _icons = new() { ["lol"] = GameIcons.League(), ["cs2"] = GameIcons.Cs2() };
     readonly Dictionary<Button, LightEffect> _alertEffects = [];
     readonly Dictionary<Button, string> _alertSwatchHex = [];
-    readonly Dictionary<string, (Button Button, CheckBox Switch, System.Windows.Shapes.Ellipse Dot, TextBlock Summary)> _ruleRows = [];
+    readonly Dictionary<string, (Button Button, CheckBox Switch, System.Windows.Shapes.Ellipse Dot, TextBlock Name, TextBlock Summary)> _ruleRows = [];
     Button _alertCustom = null!;
-    string _editRule = "lowhp";
+    // Duzenlenen kural; null: duzenleyici kapali (yer kazanmak icin satira tiklayinca acilir).
+    string? _editRule;
 
     static string AlertEffectName(LightEffect e) => e switch
     {
@@ -427,17 +495,39 @@ public partial class MainWindow : Window
 
     static string ColorName(string hex) => SwatchColors.FirstOrDefault(c => c.hex == hex).name?.ToLower(Tr) ?? hex;
 
-    DeviceLight EditLight => _s.LolRules[_editRule].Light;
+    DeviceLight EditLight => G(_game).Rules[_editRule!].Light;
 
-    void BuildRuleControls()
+    internal void SelectGame(string id)
     {
-        foreach (var (id, name, _) in LightState.LolRuleInfo)
+        _game = id;
+        _editRule = null;
+        Render();
+    }
+
+    // Anlik goruntu icin: bir kuralin duzenleyicisini acar.
+    internal void EditRule(string id)
+    {
+        if (!G(_game).Rules.ContainsKey(id)) return;
+        _editRule = id;
+        Render();
+    }
+
+    void BuildGameControls()
+    {
+        foreach (var def in GameDefs.All)
+        {
+            var b = new Button { Style = (Style)FindResource("Choice"), Content = def.Name };
+            b.Click += (_, _) => SelectGame(def.Id);
+            _gameChoices[b] = def.Id;
+            GameChoices.Children.Add(b);
+        }
+        // Satirlar tum oyunlarin kural kimliklerinden bir kez kurulur; secili oyunda olmayanlar gizlenir.
+        foreach (var id in GameDefs.All.SelectMany(g => g.Rules.Select(r => r.Id)).Distinct())
         {
             var sw = new CheckBox { Style = (Style)FindResource("Switch"), VerticalAlignment = VerticalAlignment.Center };
-            AutomationProperties_SetName(sw, $"{name} kuralı");
-            sw.Click += (_, _) => { _s.LolRules[id].On = sw.IsChecked == true; RuleChanged(preview: false); };
+            sw.Click += (_, _) => { G(_game).Rules[id].On = sw.IsChecked == true; RuleChanged(preview: false); };
             var dot = new System.Windows.Shapes.Ellipse { Width = 14, Height = 14, Margin = new(0, 0, 10, 0), Stroke = Brush("#33808080"), VerticalAlignment = VerticalAlignment.Center };
-            var title = new TextBlock { Text = name, FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Width = 92 };
+            var title = new TextBlock { FontWeight = FontWeights.SemiBold, VerticalAlignment = VerticalAlignment.Center, Width = 124 };
             var summary = new TextBlock { Style = (Style)FindResource("Small"), VerticalAlignment = VerticalAlignment.Center, TextTrimming = TextTrimming.CharacterEllipsis };
             var dock = new DockPanel();
             DockPanel.SetDock(sw, Dock.Right);
@@ -446,12 +536,10 @@ public partial class MainWindow : Window
             dock.Children.Add(title);
             dock.Children.Add(summary);
             var row = new Button { Style = (Style)FindResource("RuleRow"), Content = dock };
-            AutomationProperties_SetName(row, $"{name} ışığını düzenle");
-            row.Click += (_, _) => { _editRule = id; RenderLol(); };
-            _ruleRows[id] = (row, sw, dot, summary);
-            RuleRows.Children.Add(row);
+            row.Click += (_, _) => { _editRule = _editRule == id ? null : id; RenderGame(); };
+            _ruleRows[id] = (row, sw, dot, title, summary);
         }
-        foreach (var e in LightState.LolEffects)
+        foreach (var e in GameDefs.Effects)
         {
             var b = new Button { Style = (Style)FindResource("Choice"), Content = AlertEffectName(e) };
             b.Click += (_, _) => { EditLight.Effect = e; RuleChanged(); };
@@ -475,7 +563,7 @@ public partial class MainWindow : Window
 
     void SetAlertColor(string hex)
     {
-        if (LightState.Bright(hex) is not { } bright) return;
+        if (_editRule is null || LightState.Bright(hex) is not { } bright) return;
         // Kural Nefes'i tek renkli nabizdir: ikinci renk birinciye esitlenir.
         EditLight.Color = EditLight.Color2 = bright;
         RuleChanged();
@@ -505,11 +593,11 @@ public partial class MainWindow : Window
         AlertHex.Text = EditLight.Color;
     }
 
-    void OnLolThreshold(object sender, RoutedPropertyChangedEventArgs<double> e)
+    void OnThreshold(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         // Minimum="10" XAML yuklenirken degeri zorlar; olay diger kontroller olusmadan tetiklenebilir.
         if (_loading || !IsInitialized) return;
-        _s.LolThreshold = (int)Math.Round(e.NewValue);
+        G(_game).Threshold = (int)Math.Round(e.NewValue);
         ApplyGame();
         _save.Stop(); _save.Start();
     }
@@ -621,7 +709,7 @@ public partial class MainWindow : Window
         }
         Microsoft.Win32.SystemEvents.UserPreferenceChanged -= OnSystemPreference;
         if (!SkipSave) _s.Save();
-        _lol?.Dispose();
+        foreach (var (_, run) in _games) run.Monitor?.Dispose();
         _ctl.Dispose();
         base.OnClosing(e);
     }

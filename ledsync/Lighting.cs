@@ -41,14 +41,6 @@ sealed class DeviceLight
     }
 }
 
-// Oyun olayina bagli isik kurali.
-sealed class GameRule
-{
-    public bool On { get; set; } = true;
-    public DeviceLight Light { get; set; } = new();
-    public GameRule Clone() => new() { On = On, Light = Light.Clone() };
-}
-
 // Kullanicinin istedigi isik. Kaydedilir; acilista geri yuklenir.
 sealed class LightState
 {
@@ -58,31 +50,18 @@ sealed class LightState
     // Ayri modda cihaz basina ayar; ilk kez ayri moda gecildiginde ortak ayardan kopyalanir.
     public Dictionary<string, DeviceLight> Devices { get; set; } = [];
     public Dictionary<string, bool> Enabled { get; set; } = new() { ["fans"] = true, ["cpu"] = true, ["gpu"] = true };
-    // Oyun uyarisi: LoL'de can bu yuzdenin altina dusunce kirmizi yanip soner.
-    public bool LolAlert { get; set; } = true;
     // "System" (Windows uygulama temasi), "Light" ya da "Dark".
     public string Theme { get; set; } = "System";
-    public int LolThreshold { get; set; } = 30;
-    // LoL isik kurallari: her biri acik/kapali ve kendi isigi (renk, efekt). LolAlert hepsinin ana anahtari.
-    // Durum kurallari (dusuk can, olu) surdukce yanar; olay kurallari (oldurme, sonuc) Seconds kadar yanip biter.
-    public Dictionary<string, GameRule> LolRules { get; set; } = DefaultLolRules();
-    public static readonly LightEffect[] LolEffects = [LightEffect.Blink, LightEffect.Breath, LightEffect.Static];
-    public static readonly (string id, string name, double seconds)[] LolRuleInfo =
-        [("lowhp", "Düşük can", 0), ("death", "Ölünce", 0), ("kill", "Öldürünce", 2), ("win", "Kazanınca", 8), ("lose", "Kaybedince", 8)];
+    // Oyun basina isik kurallari ("lol", "cs2"); tanimlar GameRules.cs'te.
+    public Dictionary<string, GameSettings> Games { get; set; } = GameDefs.Defaults();
 
-    static DeviceLight RuleLight(string color, LightEffect effect, int speed, int brightness = 100)
-        => new() { Color = color, Color2 = color, Brightness = brightness, Effect = effect, Speed = speed };
-
-    static Dictionary<string, GameRule> DefaultLolRules() => new()
-    {
-        ["lowhp"] = new() { Light = RuleLight("#FF0000", LightEffect.Blink, 7) },
-        ["death"] = new() { Light = RuleLight("#FFFFFF", LightEffect.Breath, 3, 40) },
-        ["kill"] = new() { Light = RuleLight("#FF9000", LightEffect.Blink, 9) },
-        ["win"] = new() { Light = RuleLight("#00FF00", LightEffect.Breath, 7) },
-        ["lose"] = new() { Light = RuleLight("#FF0000", LightEffect.Static, 5) },
-    };
-
-    // Eski surum: tek dusuk can isigi. Yalnizca okunur (LolRules["lowhp"]'a tasinir), yazilmaz.
+    // Eski surumlerin LoL alanlari: yalnizca okunur (Games["lol"]'a tasinir), yazilmaz.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LolAlert { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? LolThreshold { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, GameRule>? LolRules { get; set; }
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public DeviceLight? LolLight { get; set; }
 
@@ -102,8 +81,8 @@ sealed class LightState
 
     public LightState Clone() => new()
     {
-        On = On, Sync = Sync, Shared = Shared.Clone(), LolAlert = LolAlert, LolThreshold = LolThreshold, Theme = Theme,
-        LolRules = LolRules.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
+        On = On, Sync = Sync, Shared = Shared.Clone(), Theme = Theme,
+        Games = Games.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()),
         Devices = Devices.ToDictionary(kv => kv.Key, kv => kv.Value.Clone()), Enabled = new(Enabled),
     };
 
@@ -116,14 +95,17 @@ sealed class LightState
             if (File.Exists(Path) && JsonSerializer.Deserialize<LightState>(File.ReadAllText(Path)) is { Shared: not null, Devices: not null, Enabled: not null } s
                 && s.Shared.Valid() && s.Devices.Values.All(d => d is not null && d.Valid()))
             {
-                s.LolThreshold = Math.Clamp(s.LolThreshold, 10, 60);
-                // Kurallar: eksik ya da bozuk olan varsayilana doner; eski tek uyari isigi dusuk can kuralina tasinir.
-                var rules = DefaultLolRules();
-                if (s.LolLight is { } old && old.Valid() && LolEffects.Contains(old.Effect)) rules["lowhp"].Light = old;
-                foreach (var (id, _, _) in LolRuleInfo)
-                    if (s.LolRules?.GetValueOrDefault(id) is { Light: { } l } r && l.Valid() && LolEffects.Contains(l.Effect)) rules[id] = r;
-                s.LolRules = rules;
-                s.LolLight = null;
+                // Eski LoL alanlari (tek kural seti ya da tek uyari isigi) oyun ayarlarina tasinir.
+                // (Games varsayilanla dolu gelir; eski kayit eski alanlarin varligindan anlasilir.)
+                if (s.LolAlert is not null || s.LolThreshold is not null || s.LolRules is not null || s.LolLight is not null)
+                {
+                    var lol = new GameSettings { On = s.LolAlert ?? true, Threshold = s.LolThreshold ?? 30, Rules = s.LolRules ?? [] };
+                    if (s.LolLight is not null) lol.Rules["lowhp"] = new GameRule { Light = s.LolLight };
+                    s.Games ??= [];
+                    s.Games["lol"] = lol;
+                }
+                s.Games = GameDefs.Normalize(s.Games);
+                s.LolAlert = null; s.LolThreshold = null; s.LolRules = null; s.LolLight = null;
                 // Cihaz acma/kapama arayuzden kalkti; eski surumde kapatilmis bir cihaz gorunmeden kapali kalmasin.
                 s.Enabled = new LightState().Enabled;
                 // Donanim efektleri yalnizca on fanlarda var; baska cihaza yazilmissa sabite don.

@@ -71,6 +71,8 @@ led projesi/
 | `MainWindow.xaml(.cs)` | Tek pencere, 1000×700, boyutlandırılamaz, kendi başlık çubuğu. Ayrıntılar aşağıda. |
 | `CasePreview.xaml(.cs)` | Eğik izdüşümlü vektör kasa. `Tag`'li parçalar (`fans`/`cpu`/`gpu`), `PartClicked` olayı, `Select()`, `Show(s, t, alert)`. |
 | `ColorPicker.xaml(.cs)` | Ton (yatay) × doygunluk (dikey) alanı. Parlaklık yok, renk hep tam parlak. |
+| `GameRules.cs` | Oyun kuralı modeli: `GameRule`, `GameSettings`, `GameState`, `GameDefs` (LoL ve CS2 kural tanımları, öncelik, varsayılanlar, yükleme düzeltmesi). |
+| `Cs2.cs` | CS2 GSI: `Cs2Setup` (cfg kurulumu) ve `Cs2Monitor` (yerel dinleyici). |
 | `GameAlerts.cs` | `GameIcons.League()`: simge LeagueClient.exe'den alınır. `LolMonitor`: `https://127.0.0.1:2999/liveclientdata/allgamedata` adresini oyundayken 250 ms, oyun dışında 3 s aralıkla sorgular. Can, ölü olma, öldürme sayısı (artış = olay) ve `GameEnd` sonucunu çıkarır. İlk okumada taban alınır; eski olaylar tetiklenmez. Sertifika yalnızca 127.0.0.1:2999 için kabul edilir. |
 | `AudioMeter.cs` | COM `IAudioMeterInformation` ile tepe ses seviyesi. Kendi MTA thread'inde çalışır, 3 s okunmazsa kendini durdurur. |
 | `Theme.cs` | Açık/koyu token tablosu ve vurgu rengi geçersiz kılma. `Apply("System"/"Light"/"Dark")`. |
@@ -116,14 +118,23 @@ led projesi/
 - Hata ancak 3 ardışık başarısızlıktan sonra durum olarak bildirilir. Her başarısızlık log'a yazılır.
 - Bilinen durum: `NVAPI_NOT_SUPPORTED (-104)` ara sıra gelir ve tekrar denemede düzelir.
 
-**LoL ışık kuralları:**
-- Beş kural var: düşük can, ölünce, öldürünce, kazanınca, kaybedince. Hepsi `LightState.LolRules`'ta (`GameRule { On, Light }`). `LolAlert` hepsinin ana anahtarı.
-- Kurallar yalnızca `Sync && LolAlert` iken çalışır; TFT modunda devre dışıdır.
-- Öncelik (`MainWindow.GameLight()`): olay (öldürme 2 s, maç sonucu 8 s) > ölü > düşük can (`0 < can% < eşik`, eşik %10–60).
-- Seçilen kuralın ışığı `LightController.SetOverlay` ile her şeyin üstüne biner; kural bitince ışık normal ayara döner. Parlaklık kuralın kendi değeri (ölünce %40, diğerleri %100).
-- Kullanıcı Oyun sekmesinde her kuralı açıp kapatır; satıra tıklayınca o kuralın efektini (Yanıp sönme / Nefes / Sabit) ve rengini düzenler. Kural Nefes'i tek renkli nabızdır (`Color2 = Color`).
-- Eski `LolLight` ayarı yüklemede düşük can kuralına taşınır.
-- Genel kural: `Color2 == Color` olan her Nefes klasik tek renkli nabız olarak çalışır.
+**Oyun ışık kuralları (LoL ve CS2):**
+- Tanımlar `GameRules.cs` → `GameDefs.All`'da, ayarlar `LightState.Games["lol" | "cs2"]` altında (`GameSettings { On, Threshold, Rules, Token }`).
+- Kural türleri:
+  - **Durum kuralları** (`Seconds = 0`), durum sürdükçe yanar: düşük can, ölünce, CS2'de "kör olunca" (flash) ve "bomba kurulunca".
+  - **Olay kuralları**, `Seconds` kadar yanar: öldürünce 2 s, kazanınca ve kaybedince 8 s.
+- **Öncelik:** olay > `GameDefs.StateOrder` (ölü > flash > düşük can > bomba). Kural ışığı `LightController.SetOverlay` ile her şeyin üstüne biner.
+- **Çalışma koşulu:** Kurallar yalnızca `Sync` ve oyunun `On` anahtarı açıkken çalışır. Her oyunun izleyicisi `IGameMonitor`'dür.
+- **LoL** (`LolMonitor`): `allgamedata` adresini sorgular. TFT'de kurallar devre dışıdır.
+- **CS2** (`Cs2.cs`):
+  - `Cs2Setup`, Steam kütüphanesinden CS2'yi bulur ve `game\csgo\cfg\gamestate_integration_rlc.cfg` dosyasını yazar. Kural kapatılınca dosyayı siler.
+  - `Cs2Monitor`, 127.0.0.1:3271'de küçük bir TCP/HTTP sunucusudur. Cfg'deki `auth.token` (`Games["cs2"].Token`) ile gelmeyen istekleri yok sayar.
+  - Oyuncu öldüğünde GSI izlenen takım arkadaşını gönderir. `player.steamid != provider.steamid` ise oyuncu ölü sayılır ve arkadaşın canı ya da öldürmeleri kullanılmaz.
+  - Maç sonucu, `map.phase` `gameover`'a geçerken oyuncunun takımının skoruna göre belirlenir.
+  - 30 s istek gelmezse oyun kapanmış sayılır.
+- **Arayüz:** Oyun sekmesinde üstte oyun seçimi var. Kural satırına tıklayınca düzenleyici açılır, tekrar tıklayınca kapanır. Kural Nefes'i tek renkli nabızdır (`Color2 = Color`).
+- **Eski ayarlar:** `LolAlert`, `LolThreshold`, `LolRules` ve `LolLight` yüklemede `Games["lol"]`'a taşınır, bir daha yazılmaz.
+- **Genel kural:** `Color2 == Color` olan her Nefes klasik tek renkli nabız olarak çalışır.
 
 **Tema:**
 - Uygulama varsayılan olarak Windows temasını izler.
@@ -141,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File .\deploy.ps1
 # Donanıma dokunmadan arayüz görüntüsü al (yönetici gerektirmez)
 dotnet build .\ledsync\LedSync.csproj -c Release -o .\bin\snap
 $env:__COMPAT_LAYER = 'RunAsInvoker'
-.\bin\snap\RLEDC.exe --no-hardware --snapshot .\shot.png [--picker] [--game] [--part fans|cpu|gpu] [--theme Light|Dark] [--effect Breath]
+.\bin\snap\RLEDC.exe --no-hardware --snapshot .\shot.png [--picker] [--game] [--part fans|cpu|gpu] [--theme Light|Dark] [--effect Breath] [--game lol|cs2] [--rule lowhp]
 ```
 
 - **Snapshot modu:** 500 ms bekler (anahtar animasyonları bitsin diye) ve ayarları kaydetmez (`SkipSave`).
@@ -192,7 +203,7 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 10. **Tepsi menüsünde hızlı renk ve efekt seçimi yok.** Şu an yalnızca ışık aç/kapat, aç ve çıkış var.
 
 **Özellik**
-11. **CS2 Game State Integration.** En güçlü resmi yol: yerel HTTP üzerinden can, flash ve bomba durumu gönderir. LoL'deki `LolMonitor` deseni izlenebilir; yapılandırma dosyası CS2'nin `cfg` klasörüne yazılır. Bu makinede SteelSeries ve Logitech de CS2'den GSI ile veri alıyor (`gamestate_integration_steelseries.cfg`, `..._logitech.cfg`); üçüncü bir cfg dosyası onlarla çakışmaz. Diğer adaylar: Rocket League Stats API, Forza/F1 UDP telemetrisi.
+11. ~~CS2 Game State Integration~~ — **yapıldı (22 Ekim 2026)**, sahte GSI istekleriyle test edildi; gerçek maçta denenmedi. Ayrıntılar §4. Önceki not: En güçlü resmi yol: yerel HTTP üzerinden can, flash ve bomba durumu gönderir. LoL'deki `LolMonitor` deseni izlenebilir; yapılandırma dosyası CS2'nin `cfg` klasörüne yazılır. Bu makinede SteelSeries ve Logitech de CS2'den GSI ile veri alıyor (`gamestate_integration_steelseries.cfg`, `..._logitech.cfg`); üçüncü bir cfg dosyası onlarla çakışmaz. Diğer adaylar: Rocket League Stats API, Forza/F1 UDP telemetrisi.
     - **Valorant (22 Ekim 2026 araştırması):**
       - Tek canlı kaynak Overwolf GEP. Bu kaynakta canlı `me.health` ile `kill`, `headshot`, `death`, `match_outcome` ve `spike_*` olayları var; verilen hasar ise yalnızca tur sonunda (`round_report`) geliyor.
       - Overwolf'un Riot uyum sayfasına göre özel (kişisel) Valorant uygulamaları artık kabul edilmiyor. Herkese açık uygulamalar için Riot **ve** Overwolf onayı gerekiyor.
