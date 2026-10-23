@@ -1,6 +1,6 @@
 # RHZ LED Controller
 
-> **Sürüm 0.9.0 beta.** Bu bir beta sürümdür; hatalar olabilir. Sorunları [issue](https://github.com/elgyonr/biostarLEDController/issues) olarak bildirirsen `%AppData%\LedSynclc-hata.log` dosyasını eklemen çok yardımcı olur.
+> **Sürüm 0.9.0 beta.** Bu bir beta sürümdür; hatalar olabilir. Sorunları [issue](https://github.com/elgyonr/biostarLEDController/issues) olarak bildirirsen `%AppData%\LedSync\rlc-hata.log` dosyasını eklemen çok yardımcı olur.
 
 BIOSTAR **B650M-SILVER** anakartlı bir bilgisayarda kasa ışıklarını tek yerden yöneten Windows uygulaması. Üreticinin SILVER LIGHTNING / VIVID LED DJ yazılımlarının yerine geçer.
 
