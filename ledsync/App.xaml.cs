@@ -7,6 +7,11 @@ namespace LedSync;
 
 public partial class App : Application
 {
+    // csproj'daki <Version> (ör. "0.9.0-beta"); baslik cubugu, tepsi ve hata kaydi bunu gosterir.
+    internal static string Version { get; } =
+        typeof(App).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "?";
+
     Mutex? _single;
     Forms.NotifyIcon? _tray;
     Forms.ToolStripMenuItem? _powerItem;
@@ -22,6 +27,14 @@ public partial class App : Application
             Log.Write($"{(a.IsTerminating ? "kapanıyor: çökme · " : "")}beklenmeyen hata: {a.ExceptionObject}");
         TaskScheduler.UnobservedTaskException += (_, a) => Log.Write($"görev hatası: {a.Exception}");
         // Gelistirme: --no-hardware --snapshot <yol> pencereyi PNG'ye cizip kapanir. Donanima yazmaz, tek kopya kilidine dokunmaz.
+        // Kaldirici cagirir: uygulamanin kendi disinda biraktigi dosyalari (CS2 GSI cfg) temizler ve cikar. Pencere acilmaz.
+        if (e.Args.Contains("--cleanup"))
+        {
+            Cs2Setup.Remove();
+            Log.Write("kaldırma: CS2 ayar dosyası temizlendi");
+            Shutdown();
+            return;
+        }
         int snap = Array.IndexOf(e.Args, "--snapshot");
         if (snap >= 0 && snap + 1 < e.Args.Length && e.Args.Contains("--no-hardware"))
         {
@@ -56,11 +69,10 @@ public partial class App : Application
 
         LightController.NoHardware = e.Args.Contains("--no-hardware");
         // Acilis ve kapanis da kayda yazilir: uygulama kapali bulundugunda nedeni (cikis, Windows, cokme) anlasilsin.
-        var version = typeof(App).Assembly.GetName().Version;
         // Onceki oturum habersiz kapandiysa once onu yazar. Donanimsiz deneme kopyalari damgaya dokunmaz
         // (testte zorla kapatilirlar; gercek oturumu "habersiz kapandi" diye yanlis isaretlemesinler).
         if (!LightController.NoHardware) Heartbeat.Start();
-        Log.Write($"başladı: sürüm {version}, PID {Environment.ProcessId}{(e.Args.Length > 0 ? $", argümanlar: {string.Join(' ', e.Args)}" : "")}");
+        Log.Write($"başladı: sürüm {Version}, PID {Environment.ProcessId}{(e.Args.Length > 0 ? $", argümanlar: {string.Join(' ', e.Args)}" : "")}");
         // Uyku/uyanma: isiklarin uyanmadan sonra yanlis kalmasi (AGENTS.md madde 6) incelenirken zaman cizelgesi icin.
         Microsoft.Win32.SystemEvents.PowerModeChanged += (_, a) =>
         {
@@ -78,7 +90,7 @@ public partial class App : Application
         menu.Items.Add("Çıkış", null, (_, _) => ExitApp());
         _iconOn = TrayIcon("rlc.ico");
         _iconOff = TrayIcon("rlc-off.ico");
-        _tray = new Forms.NotifyIcon { Text = "RLC", ContextMenuStrip = menu, Visible = true };
+        _tray = new Forms.NotifyIcon { Text = $"RLC {Version}", ContextMenuStrip = menu, Visible = true };
         _tray.MouseClick += (_, a) => { if (a.Button == Forms.MouseButtons.Left) ShowWindow(); };
         UpdateTray(_window.State);
 

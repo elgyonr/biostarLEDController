@@ -111,6 +111,10 @@
               Margin="0,0,2,0" AutomationProperties.Name="Tema"/>
       <Image Source="Assets/rlc-256.png" Width="32" Height="32" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality"/>
       <TextBlock Margin="12,0,0,0" VerticalAlignment="Center" FontSize="15" FontWeight="Bold" Text="RHZ LED Controller"/>
+      <!-- Surum rozeti: beta oldugu acikca gorunsun (metin App.Version'dan). -->
+      <Border Margin="8,0,0,0" VerticalAlignment="Center" CornerRadius="6" Padding="6,1" Background="{DynamicResource Secondary}">
+        <TextBlock x:Name="VersionBadge" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"/>
+      </Border>
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="40,0,0,0">
         <Button x:Name="LightTab" Style="{StaticResource Tab}" Content="Işık" Click="OnLightTab" WindowChrome.IsHitTestVisibleInChrome="True"/>
         <Button x:Name="GameTab" Style="{StaticResource Tab}" Content="Oyun" Click="OnGameTab" WindowChrome.IsHitTestVisibleInChrome="True"/>

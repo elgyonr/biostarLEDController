@@ -31,3 +31,6 @@ design/
 # Gecici ekran goruntuleri
 *.snap.png
 shot*.png
+
+# Kurulum ciktilari (installer\build-setup.ps1 uretir)
+dist/

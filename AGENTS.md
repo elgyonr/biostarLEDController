@@ -161,6 +161,12 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 .\bin\snap\RLEDC.exe --no-hardware --snapshot .\shot.png [--picker] [--game] [--part fans|cpu|gpu] [--theme Light|Dark] [--effect Breath] [--game lol|cs2] [--rule lowhp]
 ```
 
+- **Sürüm ve kurulum dosyası:**
+  - Sürüm `ledsync/LedSync.csproj` → `<Version>` içinde (şu an `0.9.0-beta`, git etiketi `v0.9.0-beta`). Başlık çubuğundaki rozet, tepsi ipucu ve kayıttaki `başladı` satırı bunu `App.Version`'dan okur.
+  - `installer\build-setup.ps1` self-contained win-x64 yayın alır ve Inno Setup 6 (`installer\RLC.iss`) ile `dist\RHZ-LED-Controller-<sürüm>-setup.exe` dosyasını üretir. `dist/` Git'te yok.
+  - Kurulum: `Program Files\Rhizzu\RHZ LED Controller`. İsteğe bağlı otomatik başlatma `schtasks /RL HIGHEST` görevi olarak eklenir; bu, §8 madde 5'in kurulum yolu.
+  - Kaldırıcı görevi siler ve `RLEDC.exe --cleanup` ile CS2 cfg dosyasını temizler. `%AppData%\LedSync` kalır.
+  - `RLC.iss` ve `BETA.txt` **BOM'lu UTF-8** olmalı; yoksa Inno Setup Türkçe karakterleri bozar.
 - **Snapshot modu:** 500 ms bekler (anahtar animasyonları bitsin diye) ve ayarları kaydetmez (`SkipSave`).
 - **`--tray`:** pencereyi açmadan yalnızca tepsiden başlar.
 - **Doğrulama:** Gerçek LED davranışını yalnızca kullanıcı gözle doğrulayabilir. "Çalışıyor" demeden önce kullanıcıdan teyit al.

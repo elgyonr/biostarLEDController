@@ -14,6 +14,11 @@
     <Product>RHZ LED Controller</Product>
     <AssemblyTitle>RHZ LED Controller</AssemblyTitle>
     <Company>Rhizzu</Company>
+    <!-- Surum: ilk beta. AssemblyVersion/FileVersion 0.9.0.0 olur; arayuz ve kayit InformationalVersion'i gosterir.
+         Git hash'i surum metnine eklenmesin (0.9.0-beta+abc123 yerine 0.9.0-beta). -->
+    <Version>0.9.0-beta</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <Copyright>© 2026 Rhizzu · GPL-3.0</Copyright>
     <!-- WPF0001: Fluent ThemeMode .NET 9+'da deneysel olarak isaretli. -->
     <NoWarn>$(NoWarn);WPF0001</NoWarn>
   </PropertyGroup>

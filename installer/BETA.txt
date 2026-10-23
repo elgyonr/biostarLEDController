@@ -1,0 +1,17 @@
+﻿RHZ LED Controller 0.9.0 beta
+
+Bu bir BETA sürümdür. Hatalar olabilir.
+
+- Yalnızca BIOSTAR B650M-SILVER anakartlı bir bilgisayarda denendi. Başka anakartlarda
+  LED kontrolcüsünün adresi ve register'ları farklı olabilir; ışıklar beklenmedik davranabilir.
+- Uygulama donanıma PawnIO sürücüsü üzerinden erişir. PawnIO kurulu değilse ışıklar
+  değişmez; https://pawnio.eu adresinden indirip kurabilirsin.
+- Uygulama yönetici yetkisiyle çalışır (SMBus ve ekran kartı ışığına erişim için).
+- Işıklara yazan diğer programlar (OpenRGB, SignalRGB, VIVID LED DJ, SILVER LIGHTNING)
+  açıkken renkler birbirini ezebilir; bunları kapatman önerilir.
+- Oyun özellikleri (League of Legends, Counter-Strike 2) yalnızca oyunların resmi verilerini
+  kullanır. CS2 için oyunun cfg klasörüne bir ayar dosyası yazılır; kaldırınca silinir.
+- Hatalar arayüzde gösterilmez; %AppData%\LedSync\rlc-hata.log dosyasına yazılır.
+  Bir sorun bildirirken bu dosyayı eklemen çok yardımcı olur.
+
+Sorun bildirmek için: https://github.com/elgyonr/biostarLEDController/issues

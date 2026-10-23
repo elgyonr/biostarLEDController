@@ -94,6 +94,8 @@ public partial class MainWindow : Window
         // Tema kaynaklari pencere yuklenmeden yazilir; DynamicResource'lar ilk cizimde dogru rengi alir.
         Theme.Apply(_s.Theme);
         InitializeComponent();
+        // "0.9.0-beta" -> "0.9.0 beta"
+        VersionBadge.Text = App.Version.Replace('-', ' ');
         // "Sistem" temasindayken Windows'ta tema degisince uygulama da doner.
         Microsoft.Win32.SystemEvents.UserPreferenceChanged += OnSystemPreference;
         foreach (var (name, hex) in SwatchColors)
