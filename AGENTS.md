@@ -197,7 +197,7 @@ $env:__COMPAT_LAYER = 'RunAsInvoker'
 **Altyapı / risk**
 1. ~~Git deposu yok~~ — **yapıldı (22 Ekim 2026).** Kökte `main` dalıyla depo var; uzak depo `origin` = `elgyonr/biostarLEDController` (public). Push, `core.sshCommand` ayarındaki deploy key ile yapılır. `.gitattributes` `.bin`/`.ico`/`.png` dosyalarını ikili (binary) işaretler.
 2. ~~`SmbusPIIX4.bin` bir çıktı klasöründe~~ — **yapıldı.** Kaynak kopya artık `ledsync/modules/SmbusPIIX4.bin` içinde (SHA-256 `91f9b4b1…56e5`) ve derleme onu `modules\` altına kopyalıyor. `ledtest` ve `ledgui` modülü csproj'dan kopyalamıyor; bu projelerin çıktılarına elle konmuştu.
-3. **`bin/` ve `obj/` OneDrive ile eşitleniyor.** Bu, derlemeyi yavaşlatabilir ve dosya kilitlenmesine yol açabilir.
+3. ~~`bin/` ve `obj/` OneDrive ile eşitleniyor~~ — **çözüldü (23 Ekim 2026).** Proje `D:\Projects\led projesi`'ye taşındı, artık OneDrive dışında. Koddaki ve `deploy.ps1`'deki yollar göreli olduğu için taşıma derlemeyi ve kurulumu etkilemedi. Eski yol yalnızca tarihsel notlarda (`HANDOFF.md`, `PROJE_NOTLARI.md`, `arastirma/`) geçiyor.
 4. ~~Eski belgeler yanıltıcı~~ — **kısmen yapıldı.** README uygulamaya göre yeniden yazıldı. Eski README `README_PROTOTIP.md` adıyla yerelde kaldı. HANDOFF ve PROJE_NOTLARI repoda yok ama yerelde hâlâ eski durumu anlatıyor.
 
 **Davranış**
