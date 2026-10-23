@@ -37,6 +37,10 @@ BIOSTAR **B650M-SILVER** anakartlı tek bir Windows 11 bilgisayarın RGB ışık
 6. **Hata mesajları arayüzde görünmez.** Hepsi `%AppData%\LedSync\rlc-hata.log` dosyasına yazılır. Tek istisna çakışma uyarısı (ör. OpenRGB çalışıyor).
    - Aynı kayda yaşam döngüsü satırları da düşer: `başladı` (sürüm, PID), `kapanıyor: tepsiden Çıkış`, `kapanıyor: Windows …` (`OnSessionEnding`), `kapanıyor: çökme`, `kapanıyor: deploy.ps1 zorla kapatti`, `kapandı (çıkış kodu)`, `ikinci kopya…`, uyku/uyanma.
    - "Uygulama neden kapanmış?" sorusunda önce bu satırlara bak. `başladı`'dan sonra hiçbir `kapanıyor` satırı yoksa süreç dışarıdan zorla öldürülmüş demektir.
+   - **Son canlı damgası** (`Heartbeat.cs`):
+     - Uygulama dakikada bir `%AppData%\LedSync\rlc-son.txt` dosyasına `pid`, `basladi`, `son` ve `durum=calisiyor` yazar. Düzgün kapanışta `durum=kapandi` olur; `deploy.ps1` de öldürmeden önce `durum=deploy` yazar.
+     - Açılışta önceki durum hâlâ `calisiyor` ise kayda `önceki oturum habersiz kapandı … son canlı …` düşer; ölüm zamanı 1 dakikalık aralığa daralır.
+     - Donanımsız (`--no-hardware`) kopyalar bu dosyaya dokunmaz.
 7. **Senkron kuralı:**
    - Oyun uyarıları (LoL düşük can) yalnızca Sync açıkken çalışır. Böylece uyarı hiçbir zaman tek bir cihazda yanıp sönmez.
    - Müzik efekti ve ön fan donanım efektleri yalnızca Sync kapalıyken sunulur.

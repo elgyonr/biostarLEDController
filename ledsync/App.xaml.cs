@@ -57,6 +57,9 @@ public partial class App : Application
         LightController.NoHardware = e.Args.Contains("--no-hardware");
         // Acilis ve kapanis da kayda yazilir: uygulama kapali bulundugunda nedeni (cikis, Windows, cokme) anlasilsin.
         var version = typeof(App).Assembly.GetName().Version;
+        // Onceki oturum habersiz kapandiysa once onu yazar. Donanimsiz deneme kopyalari damgaya dokunmaz
+        // (testte zorla kapatilirlar; gercek oturumu "habersiz kapandi" diye yanlis isaretlemesinler).
+        if (!LightController.NoHardware) Heartbeat.Start();
         Log.Write($"başladı: sürüm {version}, PID {Environment.ProcessId}{(e.Args.Length > 0 ? $", argümanlar: {string.Join(' ', e.Args)}" : "")}");
         // Uyku/uyanma: isiklarin uyanmadan sonra yanlis kalmasi (AGENTS.md madde 6) incelenirken zaman cizelgesi icin.
         Microsoft.Win32.SystemEvents.PowerModeChanged += (_, a) =>
@@ -181,7 +184,11 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         // Anlik goruntu modu ve ikinci kopya kayda "kapandi" yazmaz (bu kopyalar hic baslamadi).
-        if (_window is not null) Log.Write($"kapandı (çıkış kodu {e.ApplicationExitCode})");
+        if (_window is not null)
+        {
+            Log.Write($"kapandı (çıkış kodu {e.ApplicationExitCode})");
+            if (!LightController.NoHardware) Heartbeat.Stop();
+        }
         _single?.Dispose();
         base.OnExit(e);
     }
